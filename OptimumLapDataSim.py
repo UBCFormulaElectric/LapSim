@@ -16,18 +16,16 @@ engine_w_vector_1 = np.zeros(len(distanceTravelled0) // 2)
 engine_T_vector_1 = np.zeros(len(distanceTravelled0) // 2)
 brakePosition_1 = np.zeros(len(distanceTravelled0) // 2)
 
-print(len(distanceTravelled0))
 # Cut down all vectors by half
 j = 0
 for i in range(1,len(distanceTravelled0),2):
     distanceTravelled[j] = distanceTravelled0[i]
-    engine_w_vector_1[j] = distanceTravelled0[i]
+    engine_w_vector_1[j] = engine_w_vector_0[i]
     engine_T_vector_1[j] = engine_T_vector_0[i]
     brakePosition_1[j] = brakePosition_0[i]
 
     j += 1
 
-print(distanceTravelled)
 distanceVectorToAdd = np.linspace(distanceTravelled0[-2] + 0.5, distanceTravelled0[-1] * 23, len(distanceTravelled)*22)
 distanceTravelled = np.concatenate((distanceTravelled, distanceVectorToAdd))
 

@@ -412,11 +412,11 @@ def batteryBrakeAndRegen(dataDict, i):
     engine_w = engine_w_vector[distanceIndex]
     engine_T = engine_T_vector[distanceIndex]
 
-    P_motors = engine_w / radsToRpm * engine_T            # motor (engine) power
+    P_motors = engine_w * engine_T / radsToRpm            # motor (engine) power
     P_motorloss = A * engine_w**2 + B * engine_w + C      # Motorloss
 
     # The traction force is for BOTH motors and both wheels, but we have two motors, so twice the loss
-    P_converter = 2 * P_motors + 2 * P_motorloss
+    P_converter = P_motors + 2 * P_motorloss
     P_battery = P_converter / n_converter
 
     # set battery power to be zero at that point and then determine regen

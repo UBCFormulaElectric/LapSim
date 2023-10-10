@@ -1,6 +1,6 @@
 ﻿PYTHON Variable,NAME,VALUE,UNITS,NOTES
 TRACK,Race Track,Sim_Endurance.csv,N/A,"Options: Sim_Endurance.csv , Motor & Track for Sim - Acceleration.csv, Spa_Francorchamps.csv, Autodromo Nazionale Monza.csv, Indianapolis Motor Speedway.csv"
-regen_on,Regen On,TRUE,Boolean,Determines whether regen is on or not
+regen_on,Regen On,FALSE,Boolean,Determines whether regen is on or not - options: TRUE or FALSE
 numLaps,Number of Laps,22,laps,Changes depending on number of laps done
 mass,Car Mass,225,kg,"Mass of: Chassis, Driver, Accumulator Enclosure, Accumulator Auxillary parts. Missing: Cell Mass, Segment Auxillary Mass, Cooling System Mass"
 Af,Frontal Area,0.7,m^2,Need to verify

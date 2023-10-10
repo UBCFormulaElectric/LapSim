@@ -302,6 +302,7 @@ dataDict = dynF.SoCenergy(dataDict, knownTotalEnergy)
 # Determination of maximum power
 dataDict['P_battery'] = dataDict['P_battery'] / 1000        # convert to kW
 dataDict['P_battery_OL'] = dataDict['P_battery_OL'] / 1000
+dataDict['P_battery_regen'] = dataDict['P_battery_regen'] / 1000
 maxPower = max(dataDict['P_battery'])
 OLMaxPower = max(dataDict['P_battery_OL'])
 
