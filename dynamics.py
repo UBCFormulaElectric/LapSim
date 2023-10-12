@@ -289,7 +289,6 @@ dataDict['Energy Use'] = energy
 OLenergy, OLTotalEnergy = dynF.trapezoidApprox(dataDict['P_battery_OL'])
 dataDict['Energy Use OL'] = OLenergy
 
-# dataDict['Max Values'][0] = "Total Energy Used (kWh)"
 dataDict['Max Values'][1] = totalEnergy
 print('Energy Used (This Sim): ', totalEnergy, 'kWh')
 print('Energy Used (Optimum Lap): ', OLTotalEnergy, 'kWh')
@@ -310,15 +309,16 @@ print("Max Power (This Sim): ", maxPower, "kW")
 print("Max Power (Optimum Lap): ", OLMaxPower, "kW")
 print("Car Mass: " + str(mass) + " kg")
 
-# Additional Outputs
-dataDict['v0'] = dataDict['v0'] * 3.6            # convert to km/h
-print("Total Time: ", dataDict['t0'][-1], "s")
-print("Lap Time: ", dataDict['t0'][-1] / numLaps, "s")
-
 # Now cut all arrays down to the correct size before inputting into a dataframe
 time_size = len(dataDict['t0'])
 for i in range(0, len(headers)):
     dataDict[headers[i]] = dataDict[headers[i]][:time_size]
+
+# Additional Outputs
+dataDict['v0'] = dataDict['v0'] * 3.6            # convert to km/h
+print("Total Time: ", dataDict['t0'][-1], "s")
+print("Lap Time: ", dataDict['t0'][-1] / numLaps, "s")
+print("Final SoC(c): ", dataDict['SoC Capacity'][-1], "%")
 
 # Now I want to write all the columns to a dictionary and then input it into a dataframe - since it's easier to do column-wise
 dfData = pd.DataFrame(dataDict)
