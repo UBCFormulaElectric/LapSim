@@ -210,7 +210,6 @@ headers = ['v0',                    # velocity vector (m/s)
            "P_battery_OL",          # Optimum Lap battery power (kW)
            "P_battery_regen",       # battery regen power (kW)
            "Capacity",              # Battery capacity (Ah)
-           "Pack Voltage",          # battery pack voltage (V)
            "Pack Current",          # Battery pack current (A)
            "Energy Use",            # energy use over time (kWh)
            "Energy Use OL",         # energy use as per Optimum lap (kWh)
@@ -230,7 +229,6 @@ for i in range(0, len(headers)):
 # Add some starting values
 dataDict['Capacity'][0] = capacity0
 dataDict['SoC Capacity'][0] = initial_SoC
-dataDict['Pack Voltage'][0] = starting_voltage
 dataDict['Battery Temp'][0] = batteryTemp0
 
 # CALCULATIONS
@@ -313,6 +311,7 @@ print("Max Power (Optimum Lap): ", OLMaxPower, "kW")
 print("Car Mass: " + str(mass) + " kg")
 
 # Additional Outputs
+dataDict['v0'] = dataDict['v0'] * 3.6            # convert to km/h
 print("Total Time: ", dataDict['t0'][-1], "s")
 print("Lap Time: ", dataDict['t0'][-1] / numLaps, "s")
 
