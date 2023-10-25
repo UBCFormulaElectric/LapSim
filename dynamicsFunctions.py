@@ -367,11 +367,12 @@ def batteryPower(dataDict, i):
     # n_transmission calculation
     n_transmission = motorEfficiency(dataDict['w_m'][i])
     
-    P_motors = P_wheel / n_transmission
-    P_motorloss = A * dataDict['w_m'][i]**2 + B * dataDict['w_m'][i] + C      # Motorloss
+    # !!!
+    P_motors = 2* P_wheel / n_transmission
+    P_motorloss = 2* A * dataDict['w_m'][i]**2 + B * dataDict['w_m'][i] + C      # Motorloss
 
     # The traction force is for BOTH motors and both wheels, but we have two motors, so twice the loss
-    P_converter = P_motors + 2 * P_motorloss
+    P_converter = P_motors + P_motorloss
     dataDict['P_battery'][i] = P_converter / n_converter
 
     return dataDict
@@ -447,6 +448,24 @@ def batteryPackCalcs(dataDict, i):
         # Note that the effect of the total pack internal resistance is included to make the calculation more accurate
         current = quad_formula(total_pack_ir, pack_nominal_voltage, -1 * dataDict['P_battery'][i])
         dataDict['Pack Current'][i] = max(current)      # ignore the negative result from the quadratic formula
+    
+    if dataDict['Pack Current'][i] > num_parallel_cells * max_CRate:
+        dataDict['Pack Current'][i] = num_parallel_cells * max_CRate
+
+        dataDict['P_battery'][i] = pack_nominal_voltage * dataDict['Pack Current'][i]
+
+        P_converter = n_converter * dataDict['P_battery'][i]
+
+        P_motorloss = 2* A * dataDict['w_m'][i]**2 + B * dataDict['w_m'][i] + C      # Motorloss
+
+        P_motors = P_converter - P_motorloss
+
+        # n_transmission calculation
+        n_transmission = motorEfficiency(dataDict['w_m'][i])
+
+        P_wheel = n_transmission * P_motors / 2
+
+        dataDict['T_m'][i] = P_wheel / (dataDict['w_m'][i] / radsToRpm)
 
     # Determine Ahr lost at this current based on time interval dt
     Ahr_difference = dataDict['Pack Current'][i] * dt / 3600
