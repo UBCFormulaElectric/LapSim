@@ -429,6 +429,8 @@ def batteryBrakeAndRegen(dataDict, i):
 
         dataDict['P_battery_regen'][i] = -P_battery     # Note that regen will be shown as negative
 
+    P_battery_debug_1 = dataDict['P_battery'][i]
+
     return dataDict
 
 # More battery calculations
@@ -450,7 +452,7 @@ def batteryPackCalcs(dataDict, i):
         current = quad_formula(total_pack_ir, pack_nominal_voltage, -1 * dataDict['P_battery'][i])
         dataDict['Pack Current'][i] = max(current)      # ignore the negative result from the quadratic formula
     
-    if dataDict['Pack Current'][i] > num_parallel_cells * max_CRate:
+    if dataDict['Pack Current'][i] > num_parallel_cells * max_CRate * max_capacity:
         dataDict['Pack Current'][i] = num_parallel_cells * max_CRate
 
         dataDict['P_battery'][i] = pack_nominal_voltage * dataDict['Pack Current'][i]
