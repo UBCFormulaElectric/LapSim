@@ -8,11 +8,11 @@ mu_rr,Rolling Resistance Coefficient,0.01,,Need to verify
 n_converter,Converter Efficiency,0.9,,Need to verify
 max_motor_torque,Max Motor Torque,100,Nm,From motor datasheet
 max_motor_rpm,Max Motor RPM,7600,rpm,From motor datasheet
-max_power,Max Motor Power,20000,W,CAN CHANGE TO FIT REQUIREMENTS
+max_power,Max Motor Power,40000,W,CAN CHANGE TO FIT REQUIREMENTS
 traction_speed,Max Speed Around Corner,31,km/h,Need to verify
 traction_radius,Radius of that corner,5,m,Need to verify
 max_speed_kmh,Max Possible Car Speed,120,km/h,Need to verify
-longitudinal_friction,Logitudinal Friction,0.725,,Need to verify
+longitudinal_friction,Logitudinal Friction,0.5,,Need to verify
 initial_SoC,Starting SoC,100,%,Changes based on starting conditions
 starting_voltage,Starting Pack Voltage,336,V,Changes based on starting conditions
 capacity0,Starting Capacity,17.7,Ah,Changes based on starting conditions

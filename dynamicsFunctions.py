@@ -374,6 +374,7 @@ def batteryPower(dataDict, i):
     # The traction force is for BOTH motors and both wheels, but we have two motors, so twice the loss
     P_converter = P_motors + P_motorloss
     dataDict['P_battery'][i] = P_converter / n_converter
+    P_battery_debug = dataDict['P_battery'][i]
 
     return dataDict
 
