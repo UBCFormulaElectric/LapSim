@@ -8,7 +8,7 @@ mu_rr,Rolling Resistance Coefficient,0.01,,Need to verify
 n_converter,Converter Efficiency,0.9,,Need to verify
 max_motor_torque,Max Motor Torque,100,Nm,From motor datasheet
 max_motor_rpm,Max Motor RPM,7600,rpm,From motor datasheet
-max_power,Max Motor Power,20000,W,CAN CHANGE TO FIT REQUIREMENTS
+max_power,Max Motor Power,10000,W,CAN CHANGE TO FIT REQUIREMENTS
 traction_speed,Max Speed Around Corner,31,km/h,Need to verify
 traction_radius,Radius of that corner,5,m,Need to verify
 max_speed_kmh,Max Possible Car Speed,120,km/h,Need to verify
@@ -26,7 +26,7 @@ num_parallel_cells,Number of parallel cells,3,,Changes based on battery selectio
 single_cell_ir,Single Cell Internal Resistance,0.01,Ohms,Changes based on battery selection
 max_CRate,Max Discharge C-Rate,15,C,Changes based on battery selection
 cell_mass,Single Battery Cell Mass,0.113,kg,Changes based on battery selection
-battery_cv,Battery Specific Heat Capacity,1040,J/kgK,Changes based on battery selection - range from 800-1100
+battery_cv,Battery Specific Heat Capacity,730.9,J/kgK,Changes based on battery selection - range from 800-1100
 cell_air_area,Battery Air Cooling Surface Area,0.001831903,m^2,Changes based on battery selection
 cell_water_area,Battery Water Cooling Surface Area,0.0003906,m^2,Changes based on battery selection
 cell_aux_factor,Battery Auxillary Mass Factor,2.506,kg/kWh,Changes based on battery selection
@@ -34,7 +34,7 @@ air_temp,Air Temperature,35,C,Changes based on thermal design
 water_temp,Water Temperature ,35,C,Changes based on thermal design
 heatsink_mass,Heatsink Mass,1.475,kg,Changes based on thermal design
 heatsink_cv,Heatsink Specific Heat Capacity,890,J/C*kg,Changes based on thermal design - range from 400 - 1000
-air_htc,Air Heat Transfer Coefficient,2.5,W/m^2,Changes based on thermal design - range from 0-200
+air_htc,Air Heat Transfer Coefficient,75,W/m^2,Changes based on thermal design - range from 0-200
 water_htc,Water Heat Transfer Coefficient,0,W/m^2,Changes based on thermal design - range from 0-400
 air_factor_m,Air Cooling Mass Percentage,0,,Changes based on thermal design - range from 0-0.05
 water_factor_m,Water Cooling Mass Percentage,0,,Changes based on thermal design - range from 0.05-0.9

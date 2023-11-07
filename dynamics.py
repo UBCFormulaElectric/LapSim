@@ -5,7 +5,7 @@ import math
 import csv
 import dynamicsFunctions as dynF
 #################################################################################
-# Mallory Moxham - UBC Formula Electric - Septmber 2023
+# Mallory Moxham - UBC Formula Electric - September 2023
 #################################################################################
 # USER-INPUT CONSTANTS
 # TRACK FILE

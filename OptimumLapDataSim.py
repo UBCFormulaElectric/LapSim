@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-inFile = "20.0kW_BrakeAndMotor_OL.csv"
+inFile = "10.0kW_BrakeAndMotor_OL.csv"
 
 brake_df = pd.read_csv(inFile, header=[0])
 brake_df = brake_df.drop([0,1])
