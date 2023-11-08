@@ -8,7 +8,7 @@ mu_rr,Rolling Resistance Coefficient,0.01,,Need to verify
 n_converter,Converter Efficiency,0.9,,Need to verify
 max_motor_torque,Max Motor Torque,100,Nm,From motor datasheet
 max_motor_rpm,Max Motor RPM,7600,rpm,From motor datasheet
-max_power,Max Motor Power,10000,W,CAN CHANGE TO FIT REQUIREMENTS
+max_power,Max Motor Power,10000,W,"ONLY CHANGE BETWEEN THE FOLLOWING THREE VALUES: 10, 20, 40"
 traction_speed,Max Speed Around Corner,31,km/h,Need to verify
 traction_radius,Radius of that corner,5,m,Need to verify
 max_speed_kmh,Max Possible Car Speed,120,km/h,Need to verify
