@@ -302,11 +302,15 @@ dataDict['P_battery_OL'] = dataDict['P_battery_OL'] / 1000
 dataDict['P_battery_regen'] = dataDict['P_battery_regen'] / 1000
 maxPower = max(dataDict['P_battery'])
 OLMaxPower = max(dataDict['P_battery_OL'])
+averagePower = np.mean(dataDict['P_battery'])
+averageOLPower = np.mean(dataDict['P_battery_OL'])
 
 # dataDict['Max Values'][2] = "Max power Used (kW)"
 dataDict['Max Values'][3] = maxPower
 print("Max Power (This Sim): ", maxPower, "kW")
 print("Max Power (Optimum Lap): ", OLMaxPower, "kW")
+print("Avg Power (This Sim): ", averagePower, "kW")
+print("Avg Power (Optimum Lap): ", averageOLPower, "kW")
 print("Car Mass: " + str(mass) + " kg")
 
 # Now cut all arrays down to the correct size before inputting into a dataframe
