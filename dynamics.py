@@ -4,13 +4,14 @@ import pandas as pd
 import math
 import csv
 import dynamicsFunctions as dynF
+
 #################################################################################
 # Mallory Moxham - UBC Formula Electric - September 2023
 #################################################################################
 # USER-INPUT CONSTANTS
 # TRACK FILE
 TRACK = None
-regen_on = None                 # Regen on - True or False
+regen_on = None                 # True/False - Regen on or off
 numLaps = None
 
 # CAR CONSTANTS
@@ -23,7 +24,6 @@ mu_rr = None                    # COEFFICIENT OF ROLLING RESISTANCE
 initial_SoC = None              # % - INITIAL STATE OF CHARGE
 starting_voltage = None         # V - INITIAL PACK VOLTAGE
 capacity0 = None                # Ah - INITIAL PACK CAPACITY
-batteryTemp0 = None             # C - starting temperature of battery pack
 # DEPENDS ON BATTERY CHOICE
 max_capacity = None             # Ah
 n_converter = None              # converter efficiency
@@ -37,7 +37,6 @@ max_CRate = None                # Max C-Rate
 cell_mass = None                # Mass of single cell
 battery_cv = None               # Specific heat capacity of battery
 # !!!
-cell_air_area = None            # m^2 - AIR COOLING SURFACE OF CELL
 cell_water_area = None          # m^2 - WATER COOLING SURFACE OF CELL
 cell_aux_factor = None          # kg/kWh - SEGMENT AUXILLARY MASS/ENERGY
 
@@ -54,12 +53,14 @@ longitudinal_friction = None    # Coefficient of longitudinal friction
 
 # !!! 
 # THERMAL CONSTANTS
+heatsink_air_area = None        # m^2 - AIR COOLING SURFACE OF CELL
 heatsink_mass = None            # kg - TOTAL PACK HEATSINK MASS
 heatsink_cv = None              # J/C*kg - HEATSINK MATERIAL SPECIFIC HEAT
 air_temp = None            # C - CONSTANT ASSUMED AIR TEMP
 water_temp = None          # C - CONSTANT ASSUMED WATER TEMP
 air_htc = None                  # W/C*m^2 - ASSUMED CONSTANT AIR HTC
 water_htc = None                # W/C*m^2 - ASSUMED CONSTANT WATER HTC
+thermal_resistance_SE = None    # K/W - ASSUMED SERIES ELEMENT THERMAL RESISTANCE
 air_factor_m = None             # kg/kg AIR COOLING MASS PER BATTERY MASS
 water_factor_m = None           # kg/kg WATER COOLING MASS PER BATTERY MASS
 
@@ -110,11 +111,6 @@ v_air = 0               # air velocity: m/s
 radsToRpm = 1 / (2 * math.pi) * 60    # rad/s --> rpm
 Cd = 1                  # drag coefficient
 
-# !!!
-# Pack Design Constants
-e_spec_aux_mass = 2.51 # kg/kWh of auxillary battery components
-enclosure_mass = 4.456 # kg
-
 # Efficiencies
 n_motor_arr = np.array([[0,0.86],
                         [2000,0.9],
@@ -149,9 +145,12 @@ mass = mass + cooled_cell_mass + cell_aux_mass + heatsink_mass # kg
 
 # !!! 
 # Thermals - Calculated Values
-battery_cooled_hc = battery_cv*cell_mass + (heatsink_mass*heatsink_cv)/num_cells # J/C
-air_tc = air_htc*cell_air_area # W/C
+battery_heat_capacity = battery_cv*cell_mass # J/C
+air_tc = air_htc*heatsink_air_area  # W/C
 water_tc = water_htc*cell_water_area # W/C
+air_thermal_resistance = 1 / air_tc  # K/W
+heatsink_temp_0 = air_temp           # C
+batteryTemp0 = air_temp             # C - starting temperature of battery pack (may change if necessary)
 
 # Motor
 # Motor Power Loss Constants - from excel fit of datasheet graph
@@ -169,6 +168,15 @@ max_speed = max_speed_kmh / 3.6             # m/s
 max_traction_force = mass * g * longitudinal_friction   # N
 # This determines our friction force based on the evaluated car mass.
 F_friction = mu_f * mass * g
+
+# Take in braking and regen file:
+# Read .csv of braking vs distance data
+brake_df = pd.read_csv(brakeCsvName, header=[0])
+# brake_df = brake_df.drop([0,1])
+distanceTravelled = brake_df.loc[:,'elapsedDistance'].to_numpy(dtype=float)
+engine_w_vector = brake_df.loc[:,'engineSpeed'].to_numpy(dtype=float)
+engine_T_vector = brake_df.loc[:,'torque'].to_numpy(dtype=float)
+brakePosition = brake_df.loc[:,'brakePosition'].to_numpy(dtype=float)
 
 ####################################################################################
 # CODE
@@ -217,6 +225,7 @@ headers = ['v0',                    # velocity vector (m/s)
            "SoC Capacity",          # state of charge - capacity based (%)
            "Dissipated Power",      # Power dissipated from batteries due to internal resistance (W)
            "Battery Temp",          # Temperature of battery pack (C)
+           "Heatsink Temp",         # Temperature of the heat sink (C)
            "Max Values"]            # maximum battery power used, total energy used
 dataDict = dict.fromkeys(headers)
 dataDict['t0'] = np.zeros((1))      # Initialize the time vector separately for reasons that will become apparent later in the code
@@ -230,6 +239,7 @@ for i in range(0, len(headers)):
 dataDict['Capacity'][0] = capacity0
 dataDict['SoC Capacity'][0] = initial_SoC
 dataDict['Battery Temp'][0] = batteryTemp0
+dataDict['Heatsink Temp'][0] = heatsink_temp_0
 
 # CALCULATIONS
 for i in range(0,num-1):
@@ -281,6 +291,10 @@ for i in range(0,num-1):
     # Increase time vector
     next_t = np.array([dataDict['t0'][i] + dt])
     dataDict['t0'] = np.append(dataDict['t0'], next_t)
+
+    # Set any negative motor torque to zero
+    if dataDict['T_m'][i] < 0:
+        dataDict['T_m'][i] = 0
 
 # Trapezoidal approximation for energy used
 energy, totalEnergy = dynF.trapezoidApprox(dataDict['P_battery'])

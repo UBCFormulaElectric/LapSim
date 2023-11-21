@@ -37,7 +37,6 @@ max_CRate = None                # Max C-Rate
 cell_mass = None                # Mass of single cell
 battery_cv = None               # Specific heat capacity of battery
 # !!!
-cell_air_area = None            # m^2 - AIR COOLING SURFACE OF CELL
 cell_water_area = None          # m^2 - WATER COOLING SURFACE OF CELL
 cell_aux_factor = None          # kg/kWh - SEGMENT AUXILLARY MASS/ENERGY
 
@@ -54,12 +53,14 @@ longitudinal_friction = None    # Coefficient of longitudinal friction
 
 # !!! 
 # THERMAL CONSTANTS
+heatsink_air_area = None        # m^2 - AIR COOLING SURFACE OF CELL
 heatsink_mass = None            # kg - TOTAL PACK HEATSINK MASS
 heatsink_cv = None              # J/C*kg - HEATSINK MATERIAL SPECIFIC HEAT
 air_temp = None            # C - CONSTANT ASSUMED AIR TEMP
 water_temp = None          # C - CONSTANT ASSUMED WATER TEMP
 air_htc = None                  # W/C*m^2 - ASSUMED CONSTANT AIR HTC
 water_htc = None                # W/C*m^2 - ASSUMED CONSTANT WATER HTC
+thermal_resistance_SE = None    # K/W - ASSUMED SERIES ELEMENT THERMAL RESISTANCE
 air_factor_m = None             # kg/kg AIR COOLING MASS PER BATTERY MASS
 water_factor_m = None           # kg/kg WATER COOLING MASS PER BATTERY MASS
 
@@ -144,9 +145,11 @@ mass = mass + cooled_cell_mass + cell_aux_mass + heatsink_mass # kg
 
 # !!! 
 # Thermals - Calculated Values
-battery_cooled_hc = battery_cv*cell_mass + (heatsink_mass*heatsink_cv)/num_cells # J/C
-air_tc = air_htc*cell_air_area # W/C
+battery_heat_capacity = battery_cv*cell_mass # J/C
+air_tc = air_htc*heatsink_air_area # W/C
 water_tc = water_htc*cell_water_area # W/C
+air_thermal_resistance = 1 / air_tc # K/W
+heatsink_temp_0 = air_temp # C
 
 # Motor
 # Motor Power Loss Constants - from excel fit of datasheet graph
@@ -482,11 +485,19 @@ def batteryPackCalcs(dataDict, i):
     # P = I^2 * r - absolute of pack current to accout for regen also increasing pack temp
     dataDict['Dissipated Power'][i] = (abs(dataDict['Pack Current'][i]) / num_parallel_cells)**2 * single_cell_ir
     
-    # Power out of cell, if applicable
-    cell_p_out = (air_tc)*(dataDict['Battery Temp'][i]-air_temp) + water_tc*(dataDict['Battery Temp'][i]-water_temp)
+    # Previous power out of cell calculation
+    # cell_p_out = (air_tc)*(dataDict['Battery Temp'][i]-air_temp) + water_tc*(dataDict['Battery Temp'][i]-water_temp)
+
+    # Power out of cell to heatsink
+    cell_p_out = (dataDict['Battery Temp'][i] - dataDict['Heatsink Temp'][i]) / (thermal_resistance_SE * num_parallel_cells)
 
     # First temp calculations
-    dataDict['Battery Temp'][i+1] = dataDict['Battery Temp'][i] + dt * (dataDict['Dissipated Power'][i] - cell_p_out) / (battery_cooled_hc)
+    dataDict['Battery Temp'][i+1] = dataDict['Battery Temp'][i] + dt * (dataDict['Dissipated Power'][i] - cell_p_out) / (battery_heat_capacity)
+
+    # Heatsink temp calculations
+    # Split up calculation:
+    calculation1 = (dataDict['Battery Temp'][i] - dataDict['Heatsink Temp'][i]) * num_series_cells / thermal_resistance_SE - air_tc * (dataDict['Heatsink Temp'][i] - air_temp)
+    dataDict['Heatsink Temp'][i+1] = dataDict['Heatsink Temp'][i] + dt / (heatsink_mass * heatsink_cv) * calculation1
 
     ########################################################################
     # # Determine which file we should reference for voltage plots
@@ -557,12 +568,12 @@ def plotData(dataDict):
     # Plot 1)
     # Regen vs Distance
     row = 0; col = 0
-    x_axis = "Distance (m)"
-    y_axis = "Regen Power (kW)"
-    plotTitle = "Regen Power vs Distance"
+    x_axis = "Time (s)"
+    y_axis = "Torque (Nm)"
+    plotTitle = "Motor Torque vs Time"
     # Convert the velocity from m/s to km/h
     # dataDict['v0'] = dataDict['v0'] * 3.6
-    ax[row][col].plot(dataDict["r0"][0:1400], dataDict["P_battery_regen"][0:1400])       # plot the data
+    ax[row][col].plot(dataDict["t0"][0:700], dataDict["T_m"][0:700])       # plot the data
     plotDetails(x_axis, y_axis, plotTitle, ax[row][col])  # add the detaila
 
     # Plot 2)
