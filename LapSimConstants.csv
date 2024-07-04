@@ -1,14 +1,14 @@
 ﻿PYTHON Variable,NAME,VALUE,UNITS,NOTES
-TRACK,Race Track,Sim_Autocross.csv,N/A,"Options: Sim_Endurance.csv , Sim_Acceleration.csv, Sim_Autocross.csv"
+TRACK,Race Track,Sim_Endurance.csv,N/A,"Options: Sim_Endurance.csv , Sim_Acceleration.csv, Sim_Autocross.csv"
 regen_on,Regen On,FALSE,Boolean,Determines whether regen is on or not - options: TRUE or FALSE
-numLaps,Number of Laps,1,laps,Changes depending on number of laps done
+numLaps,Number of Laps,22,laps,Changes depending on number of laps done
 mass,Car Mass,225,kg,"Mass of: Chassis, Driver, Accumulator Enclosure, Accumulator Auxillary parts. Missing: Cell Mass, Segment Auxillary Mass, Cooling System Mass"
 Af,Frontal Area,0.7,m^2,Need to verify
 mu_rr,Rolling Resistance Coefficient,0.01,,Need to verify
 n_converter,Converter Efficiency,0.9,,Need to verify
 max_motor_torque,Max Motor Torque,100,Nm,From motor datasheet
 max_motor_rpm,Max Motor RPM,7600,rpm,From motor datasheet
-max_power,Max Motor Power,40000,W,"ONLY CHANGE BETWEEN THE FOLLOWING THREE VALUES: 10000, 20000, 40000 unless using for acceleration, in which case set to 78000"
+max_power,Max Motor Power,20000,W,"ONLY CHANGE BETWEEN THE FOLLOWING THREE VALUES: 10000, 20000, 40000 unless using for acceleration, in which case set to 78000"
 traction_speed,Max Speed Around Corner,31,km/h,Need to verify
 traction_radius,Radius of that corner,5,m,Need to verify
 max_speed_kmh,Max Possible Car Speed,120,km/h,Need to verify
