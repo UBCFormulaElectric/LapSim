@@ -11,7 +11,7 @@ This is the most recent version of the lap simulation. I am now keeping it up-to
     * Install the Jupyter notebook extension (can do this through VSCode)
     * Install pandas, numpy, matplotlib
 * To change constants, please use the file: "LapSimConstants.csv"
-    * At the moment, please do *not* set regen_on = TRUE
+    * At the moment, please do *not* set regen_on = TRUE or motor_choice = emrax
 * To see results at end, please view graphs in Jupyter notebook OR see dynamicsCalcs.csv for a full output of variables. Jupyter notebook will also show some basic outputs in the terminal.
 * You can leave the LapSimConstants.csv file open while running the program, but please close the dynamicsCalcs.csv file or else the program will not have permission to update it and will throw an error.
 
