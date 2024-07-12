@@ -120,7 +120,7 @@ wheel_radius = wheel_diameter / 2
 rho_air = 1.204         # air density: kg / m^3
 v_air = 0               # air velocity: m/s
 radsToRpm = 1 / (2 * math.pi) * 60    # rad/s --> rpm
-max_power = 80000       # kW
+max_power = 80000       # W
 
 # Battery Pack - Calculated Values
 num_cells = num_series_cells * num_parallel_cells
