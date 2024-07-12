@@ -2,15 +2,16 @@
 TRACK,Race Track,Sim_Endurance.csv,N/A,"Options: Sim_Endurance.csv , Sim_Acceleration.csv, Sim_Autocross.csv"
 regen_on,Regen On,FALSE,Boolean,Determines whether regen is on or not - options: TRUE or FALSE
 numLaps,Number of Laps,22,laps,Changes depending on number of laps done
-mass,Car Mass,225,kg,"Mass of: Chassis, Driver, Accumulator Enclosure, Accumulator Auxillary parts. Missing: Cell Mass, Segment Auxillary Mass, Cooling System Mass"
-Af,Frontal Area,0.7,m^2,Need to verify
+no_cells_car_mass,Car Mass,195,kg,Car without battery cell mass (still include enclosure weight) - also overestimate
+Af,Frontal Area,0.78,m^2,Confirm with How-dog's calculations - currently from: https://ubcformulaelectric.atlassian.net/wiki/spaces/UFE/pages/23003611/Aerodynamics+-+Justification
+Al,Wing element area from top down,1.125,m^2,Confirm with How-dog's calculations - currently the addition of front and rear wings from: https://ubcformulaelectric.atlassian.net/wiki/spaces/UFE/pages/23003611/Aerodynamics+-+Justification
 mu_rr,Rolling Resistance Coefficient,0.01,,Need to verify
 n_converter,Converter Efficiency,0.9,,Need to verify
-motor_choice,Choose the Type of Motor,emrax,N/A,"Options: emrax, AMK"
 traction_speed,Max Speed Around Corner,31,km/h,Need to verify
 traction_radius,Radius of that corner,5,m,Need to verify
 max_speed_kmh,Max Possible Car Speed,120,km/h,Need to verify
-longitudinal_friction,Logitudinal Friction,0.5,,Need to verify
+mu_lateral,Lateral friction,0.5,,Need to verify
+mu_longitudinal,Logitudinal Friction,0.5,,Need to verify
 brake_decel,Maximum Braking Deceleration,16,m/s2,Need to verify
 initial_SoC,Starting SoC,100,%,Changes based on starting conditions
 starting_voltage,Starting Pack Voltage,336,V,Changes based on starting conditions
@@ -37,3 +38,5 @@ water_htc,Water Heat Transfer Coefficient,0,W/m^2,Changes based on thermal desig
 thermal_resistance_SE,Series Element Thermal Resistance,8.5,W/K,From Ryan's calculations
 air_factor_m,Air Cooling Mass Percentage,0,,Changes based on thermal design - range from 0-0.05
 water_factor_m,Water Cooling Mass Percentage,0,,Changes based on thermal design - range from 0.05-0.9
+Cl,Lift Coefficient,4,,Confirm with How-dog's calculations - currently from: https://ubcformulaelectric.atlassian.net/wiki/spaces/UFE/pages/23003611/Aerodynamics+-+Justification
+Cd,Drag Coefficient,0.8,,Confirm with How-dog's calculations - currently from: https://ubcformulaelectric.atlassian.net/wiki/spaces/UFE/pages/23003611/Aerodynamics+-+Justification
