@@ -24,3 +24,4 @@ This is the most recent version of the lap simulation. I am now keeping it up-to
 * Currently using Melasta cell data - need to update this
 * Battery thermal model will also need to be redone as we will be using new cells with different IR and thermal characteristics
 * Still need to add analysis for REGEN - shouldn't be super difficult based on this new set-up
+* Add VOLTAGE-SAG (ie. the voltage drop when power is lost to battery IR) - will also want to include voltage/SoC changes in the model too (but I need some more data to do this)
