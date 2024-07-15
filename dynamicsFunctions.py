@@ -48,7 +48,6 @@ cell_aux_factor = None          # kg/kWh - SEGMENT AUXILLARY MASS/ENERGY
 motor_choice = None              # emrax / AMK - choose your motor
 
 # TRACTION CONSTANTS
-max_speed_kmh = None            # km/h - MAX SPEED
 traction_speed = None           # km/h - MAX SPEED AROUND RADIUS IN TRACTION TEST
 traction_radius = None          # m - RADIUS OF TRACTION TEST
 mu_longitudinal = None          # Coefficient of longitudinal friction
@@ -155,7 +154,6 @@ F_friction = test_mass * a_centrip          # calculate the friction force
 mu_lateral = F_friction / (test_mass * g)         # calculate the tire friction coefficient
 
 # Some more arbitrary speed measurements
-max_speed = max_speed_kmh / 3.6             # m/s
 max_traction_force = mass * g * mu_longitudinal   # N - max force in LONGITUDINAL DIRECTION
 F_friction = mu_lateral * mass * g                # friction force based on the evaluated car mass.
 
@@ -231,6 +229,8 @@ def fastestNextSpeed(dataDict, PeakTorqueSpeed, i):
 
     # Traction force: F_trac
     dataDict['F_trac'][i] = 2 * dataDict['T_a'][i] / wheel_radius  # Traction force from FOUR motors
+    # dataDict['F_trac'][i] = dataDict['T_a'][i] / wheel_radius  # Traction force from FOUR motors
+
     # NOT -> F_trac[i] = T_a[i] / (2 * wheel_radius)
     # MULTIPLIED BY TWO FOR 4WD!!
 
@@ -305,7 +305,8 @@ def limit_max_speed(dataDict, v_max, i):
     dataDict['F_trac'][i] = dataDict['F_net_tan'][i] + (dataDict['F_drag'][i] + dataDict['F_RR'][i])
 
     # axel torque
-    dataDict['T_a'][i] = dataDict['F_trac'][i] * wheel_radius
+    dataDict['T_a'][i] = dataDict['F_trac'][i] * wheel_radius / 2
+    # divide by two factor to represent 4WD
 
     # motor torque
     dataDict['T_m'][i] = dataDict['T_a'][i] / GR
@@ -318,7 +319,7 @@ def limit_max_speed(dataDict, v_max, i):
 
     return dataDict
 
-# Function to incorporate and calculate for braking iterativelys
+# Function to incorporate and calculate for braking iteratively
 def braking(brakeDict, dataDict, i):
     # Find location
     trackLocation = findClosestMatch(brakeDict['Distance'], dataDict['r0'][i])
@@ -343,7 +344,8 @@ def braking(brakeDict, dataDict, i):
         dataDict['F_trac'][i] = dataDict['F_net_tan'][i] + (dataDict['F_drag'][i] + dataDict['F_RR'][i])
 
         # axel torque
-        dataDict['T_a'][i] = dataDict['F_trac'][i] * wheel_radius
+        dataDict['T_a'][i] = dataDict['F_trac'][i] * wheel_radius / 2
+        # divide by two factor to represent 4WD
 
         # motor torque (SHOULD BE NEGATIVE!!)
         dataDict['T_m'][i] = dataDict['T_a'][i] / GR
@@ -372,6 +374,9 @@ def batteryPower(dataDict, i, ShaftTorque, PowerFactor, TotalLosses, AMK_current
         Torque_index = findClosestMatch(ShaftTorque.iloc[RPM_index, :].to_list(), dataDict['T_m'][i])
         single_motor_current = AMK_current[Torque_index]
         four_motor_current = single_motor_current * 4       # to check and compare to the pack current
+        # I'm now thinking that the current given is for FOUR motors not just one!!
+
+        # currently removed the losses to see if the result makes more sense...
 
         # Add motor losses
         single_motor_losses = TotalLosses.iloc[RPM_index, Torque_index]
@@ -383,7 +388,7 @@ def batteryPower(dataDict, i, ShaftTorque, PowerFactor, TotalLosses, AMK_current
         single_inverter_power = single_motor_power / n_converter
 
         # Outputs from FOUR motors
-        power_from_four = single_inverter_power * 4
+        power_from_four = single_inverter_power #* 4
 
         # # Outputs from battery considering internal resistance (an estimate...)
         # ir_losses = total_pack_ir * four_motor_current**2
@@ -532,24 +537,16 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque):
 
     return dataDict
 
-# Process for this code block:
-# Check for the following:
-# Over 80 kW power from battery
-# Over max current from battery
-# Under-voltage fault - to add later
-# Over-temperature fault - to add later
-
-# Process for back calcs:
-# power
-# Power to battery
-
 # Energy consumed
 def energyConsumed(dataDict, i):
 
     # Add up energy over time to get an approximation
-    thisEnergy = dataDict['P_battery'][i] * (dataDict['t0'][i+1] - dataDict['t0'][i])
-    thisEnergy_kWh = thisEnergy / 3600000   # convert to kWh
-    dataDict['Energy Use'][i+1] = dataDict['Energy Use'][i] + thisEnergy_kWh
+    # Trapezoidal Approximation (to be more accurate)
+    if i != 0:
+        # (a+b)/2 * dt
+        thisEnergy = 1/2*(dataDict['P_battery'][i] + dataDict['P_battery'][i-1]) * (dataDict['t0'][i] - dataDict['t0'][i-1])
+        thisEnergy_kWh = thisEnergy / 3600000   # convert to kWh
+        dataDict['Energy Use'][i+1] = dataDict['Energy Use'][i] + thisEnergy_kWh
     
     return dataDict
 
