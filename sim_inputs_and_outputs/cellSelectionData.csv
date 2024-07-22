@@ -1,0 +1,5 @@
+﻿Cell,maxVoltage,nomVoltage,minVoltage,maxCurrent,capacity,DCIR,mass,batteryCv,numParallel,numSeries
+P30,4.2,3.6,3,36,3,0.019,0.047,700,5,130
+P28A,4.2,3.6,3,35,2.8,0.028,0.046,700,5,140
+P26A,4.2,3.6,3,35,2.6,0.028,0.0461,700,5,140
+P45,4.2,3.6,3,45,4.2,0.0145,0.069,700,4,130

@@ -1,0 +1,32 @@
+﻿PYTHON Variable,DESCRIPTION,VALUE,UNITS,NOTES
+track_choice,Race Track,Endurance,N/A,"Options: Acceleration, Autocross, Endurance, SkidPad (although this track has not been configured yet)"
+regen_on,Regen On,FALSE,Boolean,Determines whether regen is on or not - options: TRUE or FALSE
+cell_choice,Chosen Cell Type,P26A,N/A,"Options: P30, P28A, P26A, P45"
+no_cells_car_mass,Car Mass,195,kg,Car without battery cell mass (still include enclosure weight) - also overestimate (Quadruna: 195kg without segments)
+Af,Frontal Area,0.78,m^2,Confirm with How-dog's calculations - currently from: https://ubcformulaelectric.atlassian.net/wiki/spaces/UFE/pages/23003611/Aerodynamics+-+Justification
+Al,Wing element area from top down,1.125,m^2,Confirm with How-dog's calculations - currently the addition of front and rear wings from: https://ubcformulaelectric.atlassian.net/wiki/spaces/UFE/pages/23003611/Aerodynamics+-+Justification
+mu_rr,Rolling Resistance Coefficient,0.01,,Need to verify
+traction_speed,Max Speed Around Corner,31,km/h,Need to verify
+traction_radius,Radius of that corner,5,m,Need to verify
+mu_lateral,Lateral friction,0.8,,Need to verify
+mu_longitudinal,Logitudinal Friction,0.8,,Need to verify
+Cl,Lift Coefficient,4,,Confirm with How-dog's calculations - currently from: https://ubcformulaelectric.atlassian.net/wiki/spaces/UFE/pages/23003611/Aerodynamics+-+Justification
+Cd,Drag Coefficient,0.8,,Confirm with How-dog's calculations - currently from: https://ubcformulaelectric.atlassian.net/wiki/spaces/UFE/pages/23003611/Aerodynamics+-+Justification
+initial_SoC,Starting SoC,100,%,Changes based on starting conditions
+n_converter,Converter Efficiency,0.98,,AMK Inverter - from datasheet: https://drive.google.com/file/d/1SXMTTG5ESFkXv64doScmTEV6O9TPr8Ge/view 
+cell_water_area,Battery Water Cooling Surface Area,0.031875,m^2,Changes based on battery selection
+cell_aux_factor,Battery Auxillary Mass Factor,2.506,kg/kWh,Changes based on battery selection
+air_temp,Air Temperature,30,C,Changes based on thermal design
+water_temp,Water Temperature ,23,C,Changes based on thermal design
+heatsink_air_area,Heat Sink Air Cooling Surface Area,0.031875,m^2,Changes based on thermal design
+heatsink_mass,Heatsink Mass,1.475,kg,Changes based on thermal design
+heatsink_cv,Heatsink Specific Heat Capacity,890,J/C*kg,Changes based on thermal design - range from 400 - 1000
+air_htc,Air Heat Transfer Coefficient,2.5,W/m^2,Changes based on thermal design - range from 0-200
+water_htc,Water Heat Transfer Coefficient,0,W/m^2,Changes based on thermal design - range from 0-400
+thermal_resistance_SE,Series Element Thermal Resistance,8.5,W/K,Unknown
+air_factor_m,Air Cooling Mass Percentage,0,,Changes based on thermal design - range from 0-0.05
+water_factor_m,Water Cooling Mass Percentage,0,,Changes based on thermal design - range from 0.05-0.9
+bussing_length_unsplit,Bussing length before HV is split,1,m,Changes based on bussing design
+bussing_length_split,Total bussing length after HV has been split,2,m,Changes based on bussing design
+bussing_resistivity,Bussing material resistivity,0,Ohm-m,Changes based on selected material: Copper resistivity: 1.68e-8 // Aluminum resistivity: 2.65e-8
+bussing_crossSecnArea,Bussing Average Cross Sectional Area,0,m2,Changes based on bussing design
