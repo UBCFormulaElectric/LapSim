@@ -29,10 +29,11 @@ OLPlotPath = "C:\\VSCode_Python\\LapSim_V2\\sim_inputs_and_outputs\\"
 
 # USER-INPUT CONSTANTS
 # STRING CONSTANTS
-string_constants = 3            # BASED ON THE NUMBER OF INPUTS THAT ARE STRINGS!
+string_constants = 4            # BASED ON THE NUMBER OF INPUTS THAT ARE STRINGS!
 track_choice = None             # Chosen track model
 regen_on = None                 # True/False - Regen on or off
 cell_choice = None              # P30, P28A, P26A, P45
+torque_speed = None             # Peak or Continuous
 
 # CAR CONSTANTS
 no_cells_car_mass = None        # kg - CAR MASS WITHOUT SEGMENTS INCLUDED
@@ -56,6 +57,7 @@ initial_SoC = None              # % - INITIAL STATE OF CHARGE
 n_converter = None              # converter efficiency
 cell_water_area = None          # m^2 - WATER COOLING SURFACE OF CELL
 cell_aux_factor = None          # kg/kWh - SEGMENT AUXILLARY MASS/ENERGY
+max_power = None                # W - MAXIMUM 80 kW AS PER RULES
 
 # !!! 
 # THERMAL CONSTANTS
@@ -106,6 +108,9 @@ with open(constantsInPath, 'r', newline='') as infile:
     cell_name = dataArray[2,0]
     cell = dataArray[2,2]
 
+    torqueSpeed_name = dataArray[3,0]
+    torqueSpeed = dataArray[3,2]
+
 # Now create variables for everything
 for x, y in zip(value_name, value):
     globals()[x] = y
@@ -114,6 +119,7 @@ for x, y in zip(value_name, value):
 globals()[track_name] = track
 globals()[regen_name] = regen
 globals()[cell_name] = cell
+globals()[torqueSpeed_name] = torqueSpeed
 
 ###################################################################################
 # Upload CELL DATA
@@ -152,7 +158,6 @@ wheel_radius = wheel_diameter / 2                                           # m 
 rho_air = 1.204                                                             # air density: kg / m^3
 v_air = 0                                                                   # air velocity: m/s
 radsToRpm = 1 / (2 * math.pi) * 60                                          # rad/s --> rpm
-max_power = 80000                                                           # W - max power as per rules
 
 # Battery Pack - Calculated Values
 capacity0 = max_capacity * initial_SoC                                      # Ah (initial state of charge)
@@ -269,7 +274,7 @@ def round_nearest(x, a):
 
 ### fastestNextSpeed
 ## the initial calculations to determine a speed and distance
-def fastestNextSpeed(dataDict, PeakTorqueSpeed, i, longitudinal_traction_limits):
+def fastestNextSpeed(dataDict, TorqueSpeed, i, longitudinal_traction_limits):
     # angular frequency of wheel: w_wh
     dataDict['w_wh'][i] = dataDict['v0'][i] / wheel_radius
 
@@ -277,8 +282,8 @@ def fastestNextSpeed(dataDict, PeakTorqueSpeed, i, longitudinal_traction_limits)
     dataDict['w_m'][i] = dataDict['w_wh'][i] * GR * radsToRpm
 
     # solve for motor torque: T_m
-    index = findClosestMatch(PeakTorqueSpeed.loc[:,'Speed'].to_list(), dataDict['w_m'][i])
-    dataDict['T_m'][i] = PeakTorqueSpeed.iloc[index, 1]
+    index = findClosestMatch(TorqueSpeed.loc[:,'Speed'].to_list(), dataDict['w_m'][i])
+    dataDict['T_m'][i] = TorqueSpeed.iloc[index, 1]
 
     # DEBUG
     #print("INITIAL TORQUE: %.3f. Trial: %d" % (dataDict['T_m'][i], i))
@@ -440,7 +445,7 @@ def braking(brakeDict, dataDict, i, braking_limits):
 
 ### batteryPower
 ## NEW BATTERY FUNCTION
-def batteryPower(dataDict, i, ShaftTorque, PowerFactor, TotalLosses, AMK_current, AMK_speeds):
+def batteryPower(dataDict, i, ShaftTorque, MotorPower, TotalLosses, AMK_current, AMK_speeds):
     # separate into regen/non-regen
     if dataDict['T_m'][i] < 0:
         if regen_on == "TRUE":
@@ -453,48 +458,27 @@ def batteryPower(dataDict, i, ShaftTorque, PowerFactor, TotalLosses, AMK_current
         # determine current pulled from each motor
         RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
         Torque_index = findClosestMatch(ShaftTorque.iloc[RPM_index, :].to_list(), dataDict['T_m'][i])
-        single_motor_current = AMK_current[Torque_index]
-        four_motor_current = single_motor_current * 4       # to check and compare to the pack current
+        # single_motor_current = AMK_current[Torque_index]
+        P_3phase = MotorPower.iloc[RPM_index, Torque_index]
 
-        # Add motor losses
-        single_motor_losses = TotalLosses.iloc[RPM_index, Torque_index]
+        # Power into the inverter = P_motor-to-invert / n_converter
+        P_intoInverter = P_3phase / n_converter
 
-        # Motor power
-        single_motor_power = single_motor_current * pack_nominal_voltage + single_motor_losses
-
-        # Single inverter power
-        single_inverter_power = single_motor_power / n_converter
-
-        # Outputs from FOUR motors
-        power_from_four = single_inverter_power * 4
-
-        # Outputs from battery considering internal resistance (an estimate...)
-        dataDict['Dissipated Power'][i] = total_pack_ir * four_motor_current**2
-
-        # # Add calculation for bussing losses
-        # # Calculate bussing in the constants section as: bussing length * resistivity / cross_sectional_area
-        # bussing_losses = bussing_ir * four_motor_current**2
-
-        # Include inverter losses
-        dataDict['P_battery'][i] = power_from_four + dataDict['Dissipated Power'][i]
-        dataDict['Pack Current'][i] = four_motor_current #dataDict['P_battery'][i] / pack_nominal_voltage
-        # NOT SURE IF THIS LAST PART IS CORRECT, OR IF IT SHOULD BE four_motor_current
-
-        # Checking to see if voltage-drooping is present in the motor current measurement
-        if four_motor_current != 0:
-            dataDict['Drooped Voltage'][i] = dataDict['P_battery'][i] / four_motor_current
+        # Then losses along the bussing line
+        # Power from battery = Power into inverter
+        # Taking currently known voltage, determine current running through pack
+        # Now I'm a bit stuck on how to calculate losses that involve current: IR losses and bussing losses - but they could be done separately
+        # The question is... since we assume power stays constant through the inverter - how do we calculate current into the inverter? Anyway...
+        # Cause that would allow us to calculate voltage-drooping
         
-        # Record total losses
-        dataDict['Total Losses'][i] = single_motor_losses * 4 + dataDict['Dissipated Power'][i]
-
-        # dataDict['P_battery'][i] = dataDict['T_m'][i] * dataDict['w_m'][i] / n_converter
-        # dataDict['Pack Current'][i] = dataDict['P_battery'][i] / pack_nominal_voltage
+        dataDict['P_battery'][i] = P_intoInverter * 4   # right now without losses
+        dataDict['Pack Current'][i] = dataDict['P_battery'][i] / pack_nominal_voltage
 
     return dataDict
 
 ### batteryChecks
 ## Battery safety checks
-def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limits, TotalLosses, current_limits):
+def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limits, TotalLosses, MotorPower, current_limits):
     # Compare power limit with overcurrent fault:
     max_current_power_limited = max_power / pack_nominal_voltage
 
@@ -505,12 +489,13 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
             dataDict['P_battery'][i] = max_power
 
             dataDict['Pack Current'][i] = dataDict['P_battery'][i] / pack_nominal_voltage
-            single_motor_current = dataDict['Pack Current'][i] / 4
+            P_intoInverter = dataDict['P_battery'][i] / 4
+            P_intoMotor = P_intoInverter * n_converter
 
             # Determine resulting max torque
-            current_index = findClosestMatch(AMK_current, single_motor_current)
             RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
-            dataDict['T_m'][i] = ShaftTorque.iloc[RPM_index, current_index]
+            Power_index = findClosestMatch(MotorPower.iloc[RPM_index, :].to_list(), P_intoMotor)
+            dataDict['T_m'][i] = ShaftTorque.iloc[RPM_index, Power_index]
             
             ###############################################################################################
             # Now the rest of the values
@@ -564,15 +549,16 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
         # check for over the current limit
         if dataDict['Pack Current'][i] >= max_current:
             dataDict['Pack Current'][i] = max_current
-            single_motor_current = dataDict['Pack Current'][i] / 4
-
-            # Determine torque
-            current_index = findClosestMatch(AMK_current, single_motor_current)
-            RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
-            dataDict['T_m'][i] = ShaftTorque.iloc[RPM_index, current_index]
-
+            
             # New battery power
             dataDict['P_battery'][i] = pack_nominal_voltage * dataDict['Pack Current'][i]
+            P_intoInverter = dataDict['P_battery'][i] / 4
+            P_intoMotor = P_intoInverter * n_converter
+
+            # Determine resulting max torque
+            RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
+            Power_index = findClosestMatch(MotorPower.iloc[RPM_index, :].to_list(), P_intoMotor)
+            dataDict['T_m'][i] = ShaftTorque.iloc[RPM_index, Power_index]
 
             ###############################################################################################
             # Now the rest of the values
@@ -685,7 +671,7 @@ def plotData(dataDict, currentTime):
 
     # create subplots
     fig, ax = plt.subplots(ROWS, COLS, figsize=(FIGWIDTH, FIGHEIGHT))
-    supTitle = "Point Mass Vehicle Simulation - " + TRACK.replace(".csv","")
+    supTitle = "Point Mass Vehicle Simulation - " + track_choice + ".csv"
     fig.suptitle(supTitle)
 
     # Plot 1)
@@ -727,14 +713,87 @@ def plotData(dataDict, currentTime):
     plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
 
     # Plot 4)
-    # Battery Drooped Voltage vs. Time
+    # Battery 
     row = 1; col = 1
     x_axis = "Distance (m)"
-    y_axis = "Drooped Voltage (V)"
-    plotTitle = "Drooped Battery Voltage vs Distance"
-    ax[row][col].plot(dataDict['r0'], dataDict['Drooped Voltage'])
+    y_axis = "Total Losses (kW)"
+    plotTitle = "Drooped Total Losses vs Distance"
+    ax[row][col].plot(dataDict['r0'], dataDict['Total Losses'] / 1000)
     # Will also plot a red line to show the minimum voltage
     # ax[row][col].plot(dataDict['t0'], np.ones_like(dataDict['t0']) * pack_min_voltage, 'r')
     plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
 
     return
+
+
+#############################
+# UNUSED:
+
+# ### batteryPower
+# ## NEW BATTERY FUNCTION
+# def batteryPower(dataDict, i, ShaftTorque, MotorPower, TotalLosses, AMK_current, AMK_speeds):
+#     # separate into regen/non-regen
+#     if dataDict['T_m'][i] < 0:
+#         if regen_on == "TRUE":
+#             pass
+#         else: 
+#             # just set the output to ZERO
+#             dataDict['Pack Current'][i] = 0
+#             dataDict['P_battery'][i] = 0
+#     else:
+#         # determine current pulled from each motor
+#         RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
+#         Torque_index = findClosestMatch(ShaftTorque.iloc[RPM_index, :].to_list(), dataDict['T_m'][i])
+#         # single_motor_current = AMK_current[Torque_index]
+#         P_3phase = MotorPower.iloc[RPM_index, Torque_index]
+
+#         # Power into the inverter = P_motor-to-invert / n_converter
+#         P_intoInverter = P_3phase / n_converter
+
+#         # Then losses along the bussing line
+#         # Power from battery = Power into inverter
+#         # Taking currently known voltage, determine current running through pack
+#                 # Now I'm a bit stuck on how to calculate losses that involve current: IR losses and bussing losses - but they could be done separately
+#                 # The question is... since we assume power stays constant through the inverter - how do we calculate current into the inverter? Anyway...
+#                 # Cause that would allow us to calculate voltage-drooping
+        
+#         dataDict['P_battery'][i] = P_intoInverter * 4   # right now without losses
+#         dataDict['Pack Current'][i] = dataDict['P_battery'][i] / pack_nominal_voltage
+
+#         # four_motor_current = single_motor_current * 4       # to check and compare to the pack current
+
+#         # # Add motor losses
+#         # single_motor_losses = TotalLosses.iloc[RPM_index, Torque_index]
+
+#         # # Motor power
+#         # single_motor_power = single_motor_current * pack_nominal_voltage + single_motor_losses
+
+#         # # Single inverter power
+#         # single_inverter_power = single_motor_power / n_converter
+
+#         # # Outputs from FOUR motors
+#         # power_from_four = single_inverter_power * 4
+
+#         # # Outputs from battery considering internal resistance (an estimate...)
+#         # dataDict['Dissipated Power'][i] = total_pack_ir * four_motor_current**2
+
+#         # # # Add calculation for bussing losses
+#         # # # Calculate bussing in the constants section as: bussing length * resistivity / cross_sectional_area
+#         # # bussing_losses = bussing_ir * four_motor_current**2
+
+#         # # Include inverter losses
+#         # dataDict['P_battery'][i] = power_from_four + dataDict['Dissipated Power'][i]
+#         # dataDict['Pack Current'][i] = four_motor_current #dataDict['P_battery'][i] / pack_nominal_voltage
+#         # # NOT SURE IF THIS LAST PART IS CORRECT, OR IF IT SHOULD BE four_motor_current
+
+#         # # Checking to see if voltage-drooping is present in the motor current measurement
+#         # if four_motor_current != 0:
+#         #     dataDict['Drooped Voltage'][i] = dataDict['P_battery'][i] / four_motor_current
+        
+#         # # Record total losses
+#         # dataDict['Total Losses'][i] = single_motor_losses * 4 + dataDict['Dissipated Power'][i]
+
+#         # # dataDict['P_battery'][i] = dataDict['T_m'][i] * dataDict['w_m'][i] / n_converter
+#         # # dataDict['Pack Current'][i] = dataDict['P_battery'][i] / pack_nominal_voltage
+
+#     return dataDict

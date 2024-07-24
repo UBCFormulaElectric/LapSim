@@ -1,0 +1,11 @@
+Energy Used (This Sim): 0.4750182558165887 kWh
+Max Power (This Sim): 80.0 kW
+Avg Power (This Sim): 30.966561500805412 kW
+Car Mass: 225.55 kg
+Lap Time: 65.94307609945668 s
+Total Time: 1.099051268324278 mins
+Longitudinal traction limits: 100286
+Max Speed Limits: 45632
+Power Limits: 19933
+Current Limits: 0
+Braking Limits: 14389
