@@ -9,23 +9,23 @@ import datetime
 # Mallory Moxham - UBC Formula Electric - July 2024
 ############################################################################
 
-# FILE PATHS! (CHANGE THESE TO FIT YOUR COMPUTER PLEASE!)
+# FILE PATHS!
 # For input constants, change to applicable name:
-constantsInPath = r'C:\VSCode_Python\LapSim_V2\sim_inputs_and_outputs\LapSimConstants.csv'
+constantsInPath = "sim_inputs_and_outputs/LapSimConstants.csv"
 # For output .csv
-fullDataOutPath = r'C:\VSCode_Python\LapSim_V2\sim_inputs_and_outputs\dynamicsCalcs.csv'
+fullDataOutPath = "sim_inputs_and_outputs/dynamicsCalcs.csv"
 # For output plots
-outputPlotPath = "C:\\VSCode_Python\\LapSim_V2\\sim_inputs_and_outputs\\"
+outputPlotPath = "sim_inputs_and_outputs/"
 # For simple summary outputs
-summaryOutPath = "C:\\VSCode_Python\\LapSim_V2\\sim_inputs_and_outputs\\"
+summaryOutPath = "sim_inputs_and_outputs/"
 # For input cell data
-cellDataPath = r'C:\VSCode_Python\LapSim_V2\sim_inputs_and_outputs\cellSelectionData.csv'
+cellDataPath = "sim_inputs_and_outputs/cellSelectionData.csv"
 # AMK data input
-AMKData = r'C:\VSCode_Python\LapSim_V2\data_prep_scripts\AMK_data.json'
+AMKData = "data_prep_scripts/AMK_data.json"
 # Optimum Lap Data
-OLData = r'C:\VSCode_Python\LapSim_V2\sim_inputs_and_outputs\OptimumLapSim61.40.csv'
+OLData = "sim_inputs_and_outputs/OptimumLapSim61.40.csv"
 # Optimum Lap Plot Path
-OLPlotPath = "C:\\VSCode_Python\\LapSim_V2\\sim_inputs_and_outputs\\"
+OLPlotPath = "sim_inputs_and_outputs/"
 
 # USER-INPUT CONSTANTS
 # STRING CONSTANTS
