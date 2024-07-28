@@ -14,7 +14,7 @@ import datetime
 # FILE PATHS!
 # For input constants, change to applicable name:
 constantsInPath = "sim_inputs_and_outputs/LapSimConstants.csv"
-# For output .csv
+# For output .csv - can change output file name at the end here :)
 fullDataOutPath = "sim_inputs_and_outputs/dynamicsCalcs.csv"
 # For output plots
 outputPlotPath = "sim_inputs_and_outputs/"
