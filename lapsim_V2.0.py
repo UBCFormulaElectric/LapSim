@@ -505,46 +505,46 @@ dfData.dropna(inplace = True)
 dfData.to_csv(fullDataOutPath, index=False)
 
 # Create plots
-dynF.plotData(dataDict, currentTime)
+fig = dynF.plotData(dataDict, currentTime)
 figTitle = currentTime + "_" + cell_choice + '_' + track_choice + ".png"
 outputPlotPath = outputPlotPath + "\\" + cell_choice + "\\" + figTitle
 plt.savefig(outputPlotPath)
-#plt.show()
+fig.clear(True)
 
 print("Completed")
 
-# ###################################################
-# # OPTIMUM LAP VELOCITY PROFILE COMPARISON
+###################################################
+# OPTIMUM LAP VELOCITY PROFILE COMPARISON
 
-# # Optimum Lap Comparison
-# import pandas as pd
-# import matplotlib.pyplot as plt
-# import numpy as np
+if track_choice == "Autocross" or track_choice == "Endurance":
 
-# # Analyze current data
-# time = dataDict['t0']
-# velocity = dataDict['v0']
-# distance = dataDict['r0']
+    # Optimum Lap Comparison
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import numpy as np
 
-# # Import actual csv
-# infile = OLData
-# dfO = pd.read_csv(infile, header = [0])
-# dfO = dfO.drop(index = 0)
-# distanceO = dfO.loc[:,'elapsedDistance'].to_numpy(dtype = float)
-# timeO = dfO.loc[:,'elapsedTime'].to_numpy(dtype = float)
-# velocityO = dfO.loc[:,'speed'].to_numpy(dtype = float)
+    # Analyze current data
+    time = dataDict['t0']
+    velocity = dataDict['v0']
+    distance = dataDict['r0']
 
-# # plot the graphs on top of each other
-# plt.plot(distanceO, velocityO, 'b')
-# plt.plot(distance, velocity, 'r')
-# plt.xlabel('Distance (m)')
-# plt.ylabel('Velocity (km/h)')
-# plt.title('Velocity vs Distance over 1 Endurance Lap')
-# plt.legend(['Optimum Lap Data', 'Python Lap Simulation Data'])
-# plt.grid(True)
+    # Import actual csv
+    infile = OLData
+    dfO = pd.read_csv(infile, header = [0])
+    dfO = dfO.drop(index = 0)
+    distanceO = dfO.loc[:,'elapsedDistance'].to_numpy(dtype = float)
+    timeO = dfO.loc[:,'elapsedTime'].to_numpy(dtype = float)
+    velocityO = dfO.loc[:,'speed'].to_numpy(dtype = float)
 
-# OLFileName = currentTime + "_" + cell_choice + '_' + track_choice + "_OLPlot.png"
-# OLPlotPath = OLPlotPath + "\\" + cell_choice + "\\" + OLFileName
-# plt.savefig(OLPlotPath)
+    # plot the graphs on top of each other
+    plt.plot(distanceO, velocityO, 'b')
+    plt.plot(distance, velocity, 'r')
+    plt.xlabel('Distance (m)')
+    plt.ylabel('Velocity (km/h)')
+    plt.title('Velocity vs Distance over 1 Endurance Lap')
+    plt.legend(['Optimum Lap Data', 'Python Lap Simulation Data'])
+    plt.grid(True)
 
-# plt.show()
+    OLFileName = currentTime + "_" + cell_choice + '_' + track_choice + "_OLPlot.png"
+    OLPlotPath = OLPlotPath + "\\" + cell_choice + "\\" + OLFileName
+    plt.savefig(OLPlotPath)

@@ -726,7 +726,7 @@ def plotData(dataDict, currentTime):
     # ax[row][col].plot(dataDict['t0'], np.ones_like(dataDict['t0']) * pack_min_voltage, 'r')
     plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
 
-    return
+    return fig
 
 
 #############################
