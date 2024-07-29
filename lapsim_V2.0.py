@@ -173,6 +173,11 @@ max_current = num_parallel_cells * max_CRate * max_capacity                 # A 
 # !!! Total known energy is approximately SoC * nominal voltage * max capacity
 
 # !!!
+# Bussing calculations
+bus_R_unsplit = bussing_resistivity * bussing_length_unsplit / bussing_crossSecnArea    # Ohms
+bus_R_split = bussing_resistivity * bussing_length_split / bussing_crossSecnArea        # Ohms
+bus_R_total = bus_R_unsplit + bus_R_split / 2                                           # Ohms - presuming that we split HV into 2
+
 # Car Mass - Calculated Values
 total_cell_mass = cell_mass*num_cells                                       # kg
 cooled_cell_mass = total_cell_mass*(1 + air_factor_m + water_factor_m)      # kg
@@ -180,7 +185,6 @@ cell_aux_mass = cell_aux_factor*(capacity0 * pack_nominal_voltage / 1000)   # kg
 mass = no_cells_car_mass + total_cell_mass                                  # kg
 #+ cooled_cell_mass + cell_aux_mass + heatsink_mass # kg
 
-# !!! 
 # Thermals - Calculated Values
 battery_heat_capacity = battery_cv*cell_mass                                # J/C
 air_tc = air_htc*heatsink_air_area                                          # W/C
@@ -217,7 +221,6 @@ elif track_choice == "Endurance":
     TRACK = "Sim_Autocross.csv"
 else:
     print("Incorrect track chosen. Please choose one of: Acceleration, Autocross, SkidPad, Endurance.")
-
 
 #####################################
 # IMPORT DATASETS
@@ -382,7 +385,7 @@ headers = ['v0',                    # velocity vector (m/s)
            "a_tan0",                # tangential acceleration (m/s^2)
            "a_norm0",               # normal/centripetal acceleration (m/s^2)
            "P_battery",             # battery power (kW)
-           "V_battery",             # battery voltage (V)
+           "Pack Voltage",          # battery voltage (V)
            "P_battery_regen",       # battery regen power (kW)
            "Capacity",              # Battery capacity (Ah)
            "Pack Current",          # Battery pack current (A)
@@ -409,7 +412,7 @@ dataDict['Capacity'][0] = capacity0
 dataDict['SoC Capacity'][0] = initial_SoC
 dataDict['Battery Temp'][0] = batteryTemp0
 dataDict['Heatsink Temp'][0] = heatsink_temp_0
-dataDict['V_battery'][0] = pack_max_voltage
+dataDict['Pack Voltage'] = np.ones(num_intervals) * pack_nominal_voltage # Change later once we get better SoC prediction
 
 # DEBUG CONSTANTS
 longitudinal_traction_limits = 0

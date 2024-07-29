@@ -12,7 +12,7 @@ import datetime
 # FILE PATHS!
 # For input constants, change to applicable name:
 constantsInPath = "sim_inputs_and_outputs/LapSimConstants.csv"
-# For output .csv
+# For output .csv - can change output file name at the end here :)
 fullDataOutPath = "sim_inputs_and_outputs/dynamicsCalcs.csv"
 # For output plots
 outputPlotPath = "sim_inputs_and_outputs/"
@@ -171,6 +171,11 @@ max_current = num_parallel_cells * max_CRate * max_capacity                 # A 
 # !!! Total known energy is approximately SoC * nominal voltage * max capacity
 
 # !!!
+# Bussing calculations
+bus_R_unsplit = bussing_resistivity * bussing_length_unsplit / bussing_crossSecnArea    # Ohms
+bus_R_split = bussing_resistivity * bussing_length_split / bussing_crossSecnArea        # Ohms
+bus_R_total = bus_R_unsplit + bus_R_split / 2                                           # Ohms - presuming that we split HV into 2
+
 # Car Mass - Calculated Values
 total_cell_mass = cell_mass*num_cells                                       # kg
 cooled_cell_mass = total_cell_mass*(1 + air_factor_m + water_factor_m)      # kg
@@ -178,7 +183,6 @@ cell_aux_mass = cell_aux_factor*(capacity0 * pack_nominal_voltage / 1000)   # kg
 mass = no_cells_car_mass + total_cell_mass                                  # kg
 #+ cooled_cell_mass + cell_aux_mass + heatsink_mass # kg
 
-# !!! 
 # Thermals - Calculated Values
 battery_heat_capacity = battery_cv*cell_mass                                # J/C
 air_tc = air_htc*heatsink_air_area                                          # W/C
@@ -454,158 +458,157 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, TotalLosses, AMK_current,
             # just set the output to ZERO
             dataDict['Pack Current'][i] = 0
             dataDict['P_battery'][i] = 0
+            dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i]
     else:
         # determine current pulled from each motor
         RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
         Torque_index = findClosestMatch(ShaftTorque.iloc[RPM_index, :].to_list(), dataDict['T_m'][i])
-        # single_motor_current = AMK_current[Torque_index]
         P_3phase = MotorPower.iloc[RPM_index, Torque_index]
 
-        # Power into the inverter = P_motor-to-invert / n_converter
+        # Power into the inverter
         P_intoInverter = P_3phase / n_converter
 
-        # Then losses along the bussing line
-        # Power from battery = Power into inverter
-        # Taking currently known voltage, determine current running through pack
-        # Now I'm a bit stuck on how to calculate losses that involve current: IR losses and bussing losses - but they could be done separately
-        # The question is... since we assume power stays constant through the inverter - how do we calculate current into the inverter? Anyway...
-        # Cause that would allow us to calculate voltage-drooping
+        # Battery Current Calculation
+        # P_battery = 4*Pinv + I^2 * Rbussing
+        # ALSO: P_battery = I*pack_OC_voltage - I^2 * DCIR_cells
+        # Set these two equal to determine current (I): 4*Pinv + I2*Rbus = I*packOCVoltage - I2*Rcells, solve quadratic
+        # For now, I'll leave it at pack nominal voltage, until we get better SoC prediction - then I'll use OC voltage
+                # Next step will be to transform plots from Molicel into LookUp Tables for SoC determination
+        current_pair = quad_formula((bus_R_total + total_pack_ir), -dataDict['Pack Voltage'][i], 4*P_intoInverter)
+        dataDict['Pack Current'][i] = current_pair[1]   # CHANGE LATER TO DETERMINE WHICH IS WHICH!!
+        dataDict["P_battery"][i] = 4*P_intoInverter + dataDict['Pack Current'][i]**2 * bus_R_total
+        dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
+        dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
         
-        dataDict['P_battery'][i] = P_intoInverter * 4   # right now without losses
-        dataDict['Pack Current'][i] = dataDict['P_battery'][i] / pack_nominal_voltage
+        # dataDict['P_battery'][i] = P_intoInverter * 4   # right now without losses
+        # dataDict['Pack Current'][i] = dataDict['P_battery'][i] / pack_nominal_voltage
 
     return dataDict
 
 ### batteryChecks
 ## Battery safety checks
 def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limits, TotalLosses, MotorPower, current_limits):
-    # Compare power limit with overcurrent fault:
-    max_current_power_limited = max_power / pack_nominal_voltage
 
-    # if the power limit is more conservative
-    if max_current_power_limited < max_current:
-        # Check for over 80 kW
-        if dataDict['P_battery'][i] > max_power:
-            dataDict['P_battery'][i] = max_power
+    # Check for over 80 kW
+    if dataDict['P_battery'][i] > max_power:
+        dataDict['P_battery'][i] = max_power
 
-            dataDict['Pack Current'][i] = dataDict['P_battery'][i] / pack_nominal_voltage
-            P_intoInverter = dataDict['P_battery'][i] / 4
-            P_intoMotor = P_intoInverter * n_converter
+        current_pair = quad_formula(total_pack_ir, -dataDict['Pack Voltage'][i], dataDict['P_battery'][i])
+        dataDict['Pack Current'][i] = current_pair[1]
+        P_intoInverter = (dataDict['P_battery'][i] - dataDict['Pack Current'][i]**2 * bus_R_total) / 4
+        P_intoMotor = P_intoInverter * n_converter
 
-            # Determine resulting max torque
-            RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
-            Power_index = findClosestMatch(MotorPower.iloc[RPM_index, :].to_list(), P_intoMotor)
-            dataDict['T_m'][i] = ShaftTorque.iloc[RPM_index, Power_index]
-            
-            ###############################################################################################
-            # Now the rest of the values
-            # axel torque: T_a
-            dataDict['T_a'][i] = dataDict['T_m'][i] * GR
+        # Determine resulting max torque
+        RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
+        Power_index = findClosestMatch(MotorPower.iloc[RPM_index, :].to_list(), P_intoMotor)
+        dataDict['T_m'][i] = ShaftTorque.iloc[RPM_index, Power_index]
+        
+        ###############################################################################################
+        # Now the rest of the values
+        # axel torque: T_a
+        dataDict['T_a'][i] = dataDict['T_m'][i] * GR
 
-            # Traction force: F_trac
-            dataDict['F_trac'][i] = dataDict['T_a'][i] / wheel_radius * 2  # Traction force from FOUR motors
-            # NOT -> F_trac[i] = T_a[i] / (2 * wheel_radius)
-            # MULTIPLIED BY TWO FOR 4WD!!
+        # Traction force: F_trac
+        dataDict['F_trac'][i] = dataDict['T_a'][i] / wheel_radius * 2  # Traction force from FOUR motors
+        # NOT -> F_trac[i] = T_a[i] / (2 * wheel_radius)
+        # MULTIPLIED BY TWO FOR 4WD!!
 
-            # Drag force: F_drag
-            dataDict['F_drag'][i] = (rho_air * Af * Cd * (dataDict['v0'][i] + v_air)**2) / 2
+        # Drag force: F_drag
+        dataDict['F_drag'][i] = (rho_air * Af * Cd * (dataDict['v0'][i] + v_air)**2) / 2
 
-            # Rolling resistance: F_RR = mu * normal force
-            # Only when car is moving:
-            if dataDict['v0'][i] == 0:
-                dataDict['F_RR'][i] = 0
-            else:
-                dataDict['F_RR'][i] = mu_rr * mass * g
+        # Rolling resistance: F_RR = mu * normal force
+        # Only when car is moving:
+        if dataDict['v0'][i] == 0:
+            dataDict['F_RR'][i] = 0
+        else:
+            dataDict['F_RR'][i] = mu_rr * mass * g
 
-            # Fnet (tangential)
-            dataDict['F_net_tan'][i] = dataDict['F_trac'][i] - (dataDict['F_drag'][i] + dataDict['F_RR'][i])
+        # Fnet (tangential)
+        dataDict['F_net_tan'][i] = dataDict['F_trac'][i] - (dataDict['F_drag'][i] + dataDict['F_RR'][i])
 
-            # Acceleration (tangential)
-            dataDict['a_tan0'][i] = dataDict['F_net_tan'][i] / mass
+        # Acceleration (tangential)
+        dataDict['a_tan0'][i] = dataDict['F_net_tan'][i] / mass
 
-            # Solve for next time
-            dt = nextTime(dataDict, i)
-            dataDict['t0'][i+1] = dataDict['t0'][i] + dt
+        # Solve for next time
+        dt = nextTime(dataDict, i)
+        dataDict['t0'][i+1] = dataDict['t0'][i] + dt
 
-            # then for v1
-            dataDict['v0'][i+1] = dataDict['v0'][i] + dataDict['a_tan0'][i] * dt
+        # then for v1
+        dataDict['v0'][i+1] = dataDict['v0'][i] + dataDict['a_tan0'][i] * dt
 
-            # then for distance
-            dataDict['r0'][i+1] = dataDict['r0'][i] + delta_d
+        # then for distance
+        dataDict['r0'][i+1] = dataDict['r0'][i] + delta_d
 
-            # DEBUG
-            #print("Limited by POWER. Torque: %.3f" % (dataDict['T_m'][i]))
-            power_limits = power_limits + 1
-            dataDict['T_batterylimit_debug'][i] = dataDict['T_m'][i]
+        # DEBUG
+        #print("Limited by POWER. Torque: %.3f" % (dataDict['T_m'][i]))
+        power_limits = power_limits + 1
+        dataDict['T_batterylimit_debug'][i] = dataDict['T_m'][i]
 
-            # Checking to see if voltage-drooping is present in the motor current measurement
-            if dataDict['Pack Current'][i] != 0:
-                dataDict['Drooped Voltage'][i] = dataDict['P_battery'][i] / dataDict['Pack Current'][i]
-            
-            ##############################################################################################
-    
-    # If the current limit is more conservative
-    else:
-        # check for over the current limit
-        if dataDict['Pack Current'][i] >= max_current:
-            dataDict['Pack Current'][i] = max_current
-            
-            # New battery power
-            dataDict['P_battery'][i] = pack_nominal_voltage * dataDict['Pack Current'][i]
-            P_intoInverter = dataDict['P_battery'][i] / 4
-            P_intoMotor = P_intoInverter * n_converter
+        # Checking to see if voltage-drooping is present in the motor current measurement
+        if dataDict['Pack Current'][i] != 0:
+            dataDict['Drooped Voltage'][i] = dataDict['P_battery'][i] / dataDict['Pack Current'][i]
+        
+        ##############################################################################################
+    # check for over the current limit
+    if dataDict['Pack Current'][i] >= max_current:
+        dataDict['Pack Current'][i] = max_current
+        
+        # New battery power
+        dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] - dataDict['Pack Current'][i]**2 * total_pack_ir
+        P_intoInverter = (dataDict['P_battery'][i] - dataDict['Pack Current'][i]**2 * bus_R_total) / 4
+        P_intoMotor = P_intoInverter * n_converter
 
-            # Determine resulting max torque
-            RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
-            Power_index = findClosestMatch(MotorPower.iloc[RPM_index, :].to_list(), P_intoMotor)
-            dataDict['T_m'][i] = ShaftTorque.iloc[RPM_index, Power_index]
+        # Determine resulting max torque
+        RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
+        Power_index = findClosestMatch(MotorPower.iloc[RPM_index, :].to_list(), P_intoMotor)
+        dataDict['T_m'][i] = ShaftTorque.iloc[RPM_index, Power_index]
 
-            ###############################################################################################
-            # Now the rest of the values
-            # axel torque: T_a
-            dataDict['T_a'][i] = dataDict['T_m'][i] * GR
+        ###############################################################################################
+        # Now the rest of the values
+        # axel torque: T_a
+        dataDict['T_a'][i] = dataDict['T_m'][i] * GR
 
-            # Traction force: F_trac
-            dataDict['F_trac'][i] = dataDict['T_a'][i] / wheel_radius * 2  # Traction force from FOUR motors
-            # NOT -> F_trac[i] = T_a[i] / (2 * wheel_radius)
-            # MULTIPLIED BY TWO FOR 4WD!
+        # Traction force: F_trac
+        dataDict['F_trac'][i] = dataDict['T_a'][i] / wheel_radius * 2  # Traction force from FOUR motors
+        # NOT -> F_trac[i] = T_a[i] / (2 * wheel_radius)
+        # MULTIPLIED BY TWO FOR 4WD!
 
-            # Drag force: F_drag
-            dataDict['F_drag'][i] = (rho_air * Af * Cd * (dataDict['v0'][i] + v_air)**2) / 2
+        # Drag force: F_drag
+        dataDict['F_drag'][i] = (rho_air * Af * Cd * (dataDict['v0'][i] + v_air)**2) / 2
 
-            # Rolling resistance: F_RR = mu * normal force
-            # Only when car is moving:
-            if dataDict['v0'][i] == 0:
-                dataDict['F_RR'][i] = 0
-            else:
-                dataDict['F_RR'][i] = mu_rr * mass * g
+        # Rolling resistance: F_RR = mu * normal force
+        # Only when car is moving:
+        if dataDict['v0'][i] == 0:
+            dataDict['F_RR'][i] = 0
+        else:
+            dataDict['F_RR'][i] = mu_rr * mass * g
 
-            # Fnet (tangential)
-            dataDict['F_net_tan'][i] = dataDict['F_trac'][i] - (dataDict['F_drag'][i] + dataDict['F_RR'][i])
+        # Fnet (tangential)
+        dataDict['F_net_tan'][i] = dataDict['F_trac'][i] - (dataDict['F_drag'][i] + dataDict['F_RR'][i])
 
-            # Acceleration (tangential)
-            dataDict['a_tan0'][i] = dataDict['F_net_tan'][i] / mass
+        # Acceleration (tangential)
+        dataDict['a_tan0'][i] = dataDict['F_net_tan'][i] / mass
 
-            # Solve for next time
-            dt = nextTime(dataDict, i)
-            dataDict['t0'][i+1] = dataDict['t0'][i] + dt
+        # Solve for next time
+        dt = nextTime(dataDict, i)
+        dataDict['t0'][i+1] = dataDict['t0'][i] + dt
 
-            # then for v1
-            dataDict['v0'][i+1] = dataDict['v0'][i] + dataDict['a_tan0'][i] * dt
+        # then for v1
+        dataDict['v0'][i+1] = dataDict['v0'][i] + dataDict['a_tan0'][i] * dt
 
-            # then for distance
-            dataDict['r0'][i+1] = dataDict['r0'][i] + delta_d
+        # then for distance
+        dataDict['r0'][i+1] = dataDict['r0'][i] + delta_d
 
-            # DEBUG
-            #print("Limited by CURRENT. Torque: %.3f" % (dataDict['T_m'][i]))
-            current_limits = current_limits + 1
-            dataDict['T_batterylimit_debug'][i] = dataDict['T_m'][i]
+        # DEBUG
+        #print("Limited by CURRENT. Torque: %.3f" % (dataDict['T_m'][i]))
+        current_limits = current_limits + 1
+        dataDict['T_batterylimit_debug'][i] = dataDict['T_m'][i]
 
-            # Checking to see if voltage-drooping is present in the motor current measurement
-            if dataDict['Pack Current'][i] != 0:
-                dataDict['Drooped Voltage'][i] = dataDict['P_battery'][i] / dataDict['Pack Current'][i]
+        # Checking to see if voltage-drooping is present in the motor current measurement
+        if dataDict['Pack Current'][i] != 0:
+            dataDict['Drooped Voltage'][i] = dataDict['P_battery'][i] / dataDict['Pack Current'][i]
 
-            ##############################################################################################
+        ##############################################################################################
 
     return dataDict, power_limits, current_limits
 
@@ -713,12 +716,12 @@ def plotData(dataDict, currentTime):
     plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
 
     # Plot 4)
-    # Battery 
+    # Battery Drooped Voltage
     row = 1; col = 1
     x_axis = "Distance (m)"
     y_axis = "Total Losses (kW)"
-    plotTitle = "Drooped Total Losses vs Distance"
-    ax[row][col].plot(dataDict['r0'], dataDict['Total Losses'] / 1000)
+    plotTitle = "Drooped Voltage vs Distance"
+    ax[row][col].plot(dataDict['r0'], dataDict['Drooped Voltage'])
     # Will also plot a red line to show the minimum voltage
     # ax[row][col].plot(dataDict['t0'], np.ones_like(dataDict['t0']) * pack_min_voltage, 'r')
     plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
