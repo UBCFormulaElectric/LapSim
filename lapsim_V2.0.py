@@ -4,7 +4,7 @@ import pandas as pd
 import math
 import csv
 import json
-import dynamicsFunctions as dynF
+import dynFunctions as dynF
 import datetime
 
 ############################################################################
