@@ -1,15 +1,16 @@
 # Lap Sim Version 2
 ### Mallory Moxham, July 2024
 
-This is the most recent version of the lap simulation. I am now keeping it up-to-date on github. I don't have access to my github account at the moment - for 2FA reasons... Once I get back to Canada, I'll put this into the main branch.
+This is the most recent version of the lap simulation. I am now keeping it up-to-date on github. Yayyyyyyyy!!!
 
 ## How do I use this?
 * Please download ALL files.
 * Please put ALL download files into a parent folder called: "LapSim_V2" - this means that you won't have a to change any file paths!
 * I use VSCode to run this.
 * Packages:
-    * I use Python 3.12... (most recent)
-    * Install pandas, numpy, matplotlib, csv, json (pip install *library*)
+    * **OPTION 1:** I use Python 3.12... (most recent), pandas, numpy, matplotlib, csv, json (pip install *library*)
+    * **OPTION 2:** You can also use Anaconda and upload the .yml file that I've added in the main folder. This has all of the packages that I use for this simulation. But there's nothing really fancy here, so there's no need to use the virtual env if you don't want to.
+        * Please see this website for details on how to add the environment to your computer: https://docs.anaconda.com/working-with-conda/environments/#creating-an-environment-from-an-environment-yml-file 
 * To change constants, please use the file: "LapSimConstants.csv" in "sim_inputs_and_outputs" folder
     * At the moment, please do *not* set regen_on = TRUE or motor_choice = emrax
     * The constants I suggest you change are:
