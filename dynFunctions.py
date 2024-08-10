@@ -291,7 +291,7 @@ def fastestNextSpeed(dataDict, TorqueSpeed, i, longitudinal_traction_limits):
 
     # DEBUG
     #print("INITIAL TORQUE: %.3f. Trial: %d" % (dataDict['T_m'][i], i))
-    dataDict['T_initial_debug'][i] = dataDict['T_m'][i]
+    # dataDict['T_initial_debug'][i] = dataDict['T_m'][i]
 
     # axel torque: T_a
     dataDict['T_a'][i] = dataDict['T_m'][i] * GR
@@ -318,7 +318,7 @@ def fastestNextSpeed(dataDict, TorqueSpeed, i, longitudinal_traction_limits):
         dataDict['T_m'][i] = dataDict['T_a'][i] / GR
 
         # debug
-        dataDict['T_traction_debug'][i] = dataDict['T_m'][i]
+        # dataDict['T_traction_debug'][i] = dataDict['T_m'][i]
 
         #print("Limited by TRACTION. Max Torque: %.3f" % dataDict['T_m'][i])
         
@@ -399,7 +399,7 @@ def limit_max_speed(dataDict, v_max, i, max_speed_limits):
     dataDict['t0'][i+1] = dataDict['t0'][i] + dt
 
     # debug
-    dataDict['T_maxspeed_debug'][i] = dataDict['T_m'][i]
+    # dataDict['T_maxspeed_debug'][i] = dataDict['T_m'][i]
 
     return dataDict, max_speed_limits
 
@@ -476,7 +476,7 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, TotalLosses, AMK_current,
                 # Next step will be to transform plots from Molicel into LookUp Tables for SoC determination
         current_pair = quad_formula((bus_R_total + total_pack_ir), -dataDict['Pack Voltage'][i], 4*P_intoInverter)
         dataDict['Pack Current'][i] = current_pair[1]   # CHANGE LATER TO DETERMINE WHICH IS WHICH!!
-        dataDict["P_battery"][i] = 4*P_intoInverter + dataDict['Pack Current'][i]**2 * bus_R_total
+        dataDict["P_battery"][i] = 4 * P_intoInverter + dataDict['Pack Current'][i]**2 * bus_R_total
         dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
         dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
         
@@ -542,7 +542,7 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
         # DEBUG
         #print("Limited by POWER. Torque: %.3f" % (dataDict['T_m'][i]))
         power_limits = power_limits + 1
-        dataDict['T_batterylimit_debug'][i] = dataDict['T_m'][i]
+        # dataDict['T_batterylimit_debug'][i] = dataDict['T_m'][i]
 
         # Checking to see if voltage-drooping is present in the motor current measurement
         if dataDict['Pack Current'][i] != 0:
@@ -602,7 +602,7 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
         # DEBUG
         #print("Limited by CURRENT. Torque: %.3f" % (dataDict['T_m'][i]))
         current_limits = current_limits + 1
-        dataDict['T_batterylimit_debug'][i] = dataDict['T_m'][i]
+        # dataDict['T_batterylimit_debug'][i] = dataDict['T_m'][i]
 
         # Checking to see if voltage-drooping is present in the motor current measurement
         if dataDict['Pack Current'][i] != 0:
@@ -619,10 +619,16 @@ def energyConsumed(dataDict, i):
     # Add up energy over time to get an approximation
     # Trapezoidal Approximation (to be more accurate)
     if i != 0:
+        # Start with energy used
         # (a+b)/2 * dt
         thisEnergy = 1/2*(dataDict['P_battery'][i] + dataDict['P_battery'][i-1]) * (dataDict['t0'][i] - dataDict['t0'][i-1])
         thisEnergy_kWh = thisEnergy / 3600000   # convert to kWh
         dataDict['Energy Use'][i+1] = dataDict['Energy Use'][i] + thisEnergy_kWh
+
+        # Add up energy losses too
+        thisLoss = 1/2*(dataDict['Total Losses'][i] + dataDict['Total Losses'][i-1]) * (dataDict['t0'][i] - dataDict['t0'][i-1])
+        thisLoss_kWh = thisLoss / 3600000   # convert to kWh
+        dataDict['Total Losses NRG'][i+1] = dataDict['Total Losses NRG'][i] + thisLoss_kWh
     
     return dataDict
 

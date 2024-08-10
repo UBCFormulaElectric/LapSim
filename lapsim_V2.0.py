@@ -141,6 +141,7 @@ cell_mass = cellData.loc[cell_choice]['mass']                       # kg - SINGL
 battery_cv = cellData.loc[cell_choice]['batteryCv']                 # J/kgC - SINGLE CELL SPECIFIC HEAT CAPACITY
 num_parallel_cells = cellData.loc[cell_choice]['numParallel']       # N/A - NUMBER OF PARALLEL ELEMENTS
 num_series_cells = cellData.loc[cell_choice]['numSeries']           # N/A - NUMBER OF SERIES ELEMENTS
+expected_pack_mass = cellData.loc[cell_choice]['packWeight']        # kg - WEIGHT OF ACCUMULATOR
 
 ###################################################################################
 # CALCULATED CONSTANTS
@@ -182,7 +183,8 @@ bus_R_total = bus_R_unsplit + bus_R_split / 2                                   
 total_cell_mass = cell_mass*num_cells                                       # kg
 cooled_cell_mass = total_cell_mass*(1 + air_factor_m + water_factor_m)      # kg
 cell_aux_mass = cell_aux_factor*(capacity0 * pack_nominal_voltage / 1000)   # kg
-mass = no_cells_car_mass + total_cell_mass                                  # kg
+mass = no_cells_car_mass + expected_pack_mass                               # kg
+# mass = no_cells_car_mass + total_cell_mass                                  # kg
 #+ cooled_cell_mass + cell_aux_mass + heatsink_mass # kg
 
 # Thermals - Calculated Values
@@ -394,12 +396,9 @@ headers = ['v0',                    # velocity vector (m/s)
            "SoC Capacity",          # state of charge - capacity based (%)
            "Dissipated Power",      # Power dissipated from batteries due to internal resistance (W)
            "Battery Temp",          # Temperature of battery pack (C)
-           "T_initial_debug",
-           "T_traction_debug",
-           "T_maxspeed_debug",
-           "T_batterylimit_debug",
            "Drooped Voltage",       # To determine whether voltage drops are considered with the battery power / motor current inconsistency problem... (V)
            "Total Losses",          # Total Losses with motor and battery (kW)
+           "Total Losses NRG",      # Total Losses from motor and battery - energy (kWh)
            "Heatsink Temp"]         # Temperature of the heat sink (C)
 dataDict = dict.fromkeys(headers)
 
@@ -459,6 +458,7 @@ for i in range(0, num_intervals-1):
 
 # Energy use
 total_energy = dataDict['Energy Use'][-1] * numLaps
+total_energy_loss = dataDict['Total Losses NRG'][-1] * numLaps
 
 # Determination of maximum power
 dataDict['P_battery'] = dataDict['P_battery'] / 1000        # convert to kW
@@ -473,11 +473,13 @@ dataDict['v0'] = dataDict['v0'] * 3.6            # convert to km/h
 
 # Print relevant outputs to terminal
 print('Energy Used (This Sim): ' + str(total_energy) + ' kWh')
+print("Total Energy Lost (This Sim): %.3f kWh" % total_energy_loss)
 print("Max Power (This Sim): " + str(maxPower) + " kW")
 print("Avg Power (This Sim): " + str(averagePower) + " kW")
 print("Car Mass: " + str(mass) + " kg")
 print("Lap Time: " + str(dataDict['t0'][-1]) + " s")
 print("Total Time: " + str(dataDict['t0'][-1] * numLaps / 60) + " mins")
+print("Average pack current: ", np.mean(dataDict['Pack Current']))
 # print("Final SoC(c): ", dataDict['SoC Capacity'][-1], "%")
 
 # Write all terminal output to a *.txt file
@@ -486,8 +488,10 @@ outfileName =  currentTime + "_" + cell_choice + '_' + track_choice + ".txt"
 summaryOutPath = summaryOutPath + outfileName
 with open(summaryOutPath, 'w') as textFile:
     textFile.write('Energy Used (This Sim): ' + str(total_energy) + ' kWh\n')
+    textFile.write("Total Energy Lost (This Sim): %.3f kWh\n" % total_energy_loss)
     textFile.write("Max Power (This Sim): " + str(maxPower) + " kW\n")
     textFile.write("Avg Power (This Sim): " + str(averagePower) + " kW\n")
+    textFile.write("Average pack current: ", np.mean(dataDict['Pack Current']))
     textFile.write("Car Mass: " + str(mass) + " kg\n")
     textFile.write("Lap Time: " + str(dataDict['t0'][-1]) + " s\n")
     textFile.write("Total Time: " + str(dataDict['t0'][-1] * numLaps / 60) + " mins\n")
