@@ -1,0 +1,4 @@
+Energy Used (This Sim): 8.608953289061885 kWh
+Total Energy Lost (This Sim): 2.004 kWh
+Max Power (This Sim): 64.19 kW
+Avg Power (This Sim): 24.637245648360736 kW

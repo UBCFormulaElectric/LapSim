@@ -1,6 +1,6 @@
-﻿Cell,maxVoltage,nomVoltage,minVoltage,maxCurrent,capacity,DCIR,mass,batteryCv,numParallel,numSeries,packWeight
-P30,4.2,3.6,3,36,3,0.019,0.047,700,5,130,50
-P28A_5,4.2,3.6,3,35,2.8,0.028,0.046,700,5,140,52.4
-P26A,4.2,3.6,3,35,2.6,0.028,0.0461,700,5,140,50
-P45,4.2,3.6,3,45,4.2,0.0145,0.069,700,4,130,50
-P28A_6,4.2,3.6,3,35,2.8,0.028,0.046,700,5,132,49.8
+﻿Cell,maxVoltage,nomVoltage,minVoltage,maxCurrent,capacity,DCIR,mass,batteryCv,numParallel,numSeries,packWeight,maxChargeCurrent
+P30,4.2,3.6,3,36,3,0.019,0.047,700,5,130,50,9
+P28A_5,4.2,3.6,3,35,2.8,0.028,0.046,700,5,140,52.4,6
+P26A,4.2,3.6,3,35,2.6,0.028,0.0461,700,5,140,50,6
+P45,4.2,3.6,3,45,4.2,0.0145,0.069,700,4,130,50,13.5
+P28A_6,4.2,3.6,3,35,2.8,0.028,0.046,700,5,132,49.8,6

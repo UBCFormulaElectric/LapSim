@@ -4,6 +4,8 @@ import pandas as pd
 import math
 import csv
 import datetime
+import pickle
+import scipy
 
 ############################################################################
 # Mallory Moxham - UBC Formula Electric - July 2024
@@ -26,6 +28,8 @@ AMKData = "data_prep_scripts/AMK_data.json"
 OLData = "sim_inputs_and_outputs/OptimumLapSim61.40.csv"
 # Optimum Lap Plot Path
 OLPlotPath = "sim_inputs_and_outputs/"
+# SoC Curve Path (only for P28A cause that's what we've committed to)
+SoCPath = "data_prep_scripts/P28_SoC_curve.pkl"
 
 # USER-INPUT CONSTANTS
 # STRING CONSTANTS
@@ -132,13 +136,25 @@ cell_max_voltage = cellData.loc[cell_choice]['maxVoltage']          # V - SINGLE
 cell_nominal_voltage = cellData.loc[cell_choice]['nomVoltage']      # V - SINGLE CELL NOMINAL VOLTAGE
 cell_min_voltage = cellData.loc[cell_choice]['minVoltage']          # V - SINGLE CELL MIN VOLTAGE
 cell_max_current = cellData.loc[cell_choice]['maxCurrent']          # A - SINGLE CELL MAX CURRENT
+cell_max_charge_current = cellData.loc[cell_choice]['maxChargeCurrent'] # A - SINGLE CELL MAX CHARGE CURRENT
 max_capacity = cellData.loc[cell_choice]['capacity']                # Ah - SINGLE CELL MAX CAPACITY
 max_CRate = cell_max_current / max_capacity                         # N/A - SINGLE CELL MAXIMUM DISCHARGE C-RATE
+max_charge_CRate = cell_max_charge_current / max_capacity           # N/A - SINGLE CELL MAXIMUM CHARGE C-RATE
 single_cell_ir = cellData.loc[cell_choice]['DCIR']                  # Ohms - SINGLE CELL DCIR
 cell_mass = cellData.loc[cell_choice]['mass']                       # kg - SINGLE CELL MASS
 battery_cv = cellData.loc[cell_choice]['batteryCv']                 # J/kgC - SINGLE CELL SPECIFIC HEAT CAPACITY
 num_parallel_cells = cellData.loc[cell_choice]['numParallel']       # N/A - NUMBER OF PARALLEL ELEMENTS
 num_series_cells = cellData.loc[cell_choice]['numSeries']           # N/A - NUMBER OF SERIES ELEMENTS
+expected_pack_mass = cellData.loc[cell_choice]['packWeight']        # kg - WEIGHT OF ACCUMULATOR
+
+# Import SoC curve data
+with open(SoCPath, "rb") as file:
+    SoC_dict = pickle.load(file)
+
+# Create column lists
+SoC_currents = [0.56, 2.8, 10, 20, 30]  # A
+SoC_col_level0 = list(SoC_dict.keys())  # Key names for top level of dict
+# For the second part - the first column is always the capacity and the second is the voltage
 
 ###################################################################################
 # CALCULATED CONSTANTS
@@ -160,14 +176,17 @@ v_air = 0                                                                   # ai
 radsToRpm = 1 / (2 * math.pi) * 60                                          # rad/s --> rpm
 
 # Battery Pack - Calculated Values
-capacity0 = max_capacity * initial_SoC                                      # Ah (initial state of charge)
+initial_SoC = initial_SoC / 100                                             # Convert to fractional form!!
+cell_capacity_initial = max_capacity * initial_SoC                          # Ah (initial state of charge for single cell)
+pack_capacity_initial = cell_capacity_initial * num_parallel_cells          # Ah (initial state of charge for pack)
 num_cells = num_series_cells * num_parallel_cells                           # Total number of cells
 pack_nominal_voltage = cell_nominal_voltage * num_series_cells              # V - Pack nominal voltage
 pack_max_voltage = cell_max_voltage * num_series_cells                      # V - Pack maximum voltage
 pack_min_voltage = cell_min_voltage * num_series_cells                      # V - Pack minimum voltage
 total_pack_ir = single_cell_ir / num_parallel_cells * num_series_cells      # ohms - total IR
-knownTotalEnergy = initial_SoC * capacity0 * pack_nominal_voltage / 1000    # kWh - based on nominal voltage
+knownTotalEnergy = pack_capacity_initial * pack_max_voltage / 1000          # kWh - maximum pack energy
 max_current = num_parallel_cells * max_CRate * max_capacity                 # A - Max current through pack
+max_charge_current = num_parallel_cells * cell_max_charge_current           # A - Max charge current through pack
 # !!! Total known energy is approximately SoC * nominal voltage * max capacity
 
 # !!!
@@ -179,8 +198,9 @@ bus_R_total = bus_R_unsplit + bus_R_split / 2                                   
 # Car Mass - Calculated Values
 total_cell_mass = cell_mass*num_cells                                       # kg
 cooled_cell_mass = total_cell_mass*(1 + air_factor_m + water_factor_m)      # kg
-cell_aux_mass = cell_aux_factor*(capacity0 * pack_nominal_voltage / 1000)   # kg
-mass = no_cells_car_mass + total_cell_mass                                  # kg
+cell_aux_mass = cell_aux_factor * pack_nominal_voltage * pack_capacity_initial / 100  # kg - at the moment, based on nominal energy
+mass = no_cells_car_mass + expected_pack_mass                               # kg
+# mass = no_cells_car_mass + total_cell_mass                                  # kg
 #+ cooled_cell_mass + cell_aux_mass + heatsink_mass # kg
 
 # Thermals - Calculated Values
@@ -219,7 +239,7 @@ elif track_choice == "Endurance":
     TRACK = "Sim_Autocross.csv"
 else:
     print("Incorrect track chosen. Please choose one of: Acceleration, Autocross, SkidPad, Endurance.")
-    
+
 #################################################################################################
 # FUNCTIONS
 #################################################################################################
@@ -449,11 +469,56 @@ def braking(brakeDict, dataDict, i, braking_limits):
 
 ### batteryPower
 ## NEW BATTERY FUNCTION
-def batteryPower(dataDict, i, ShaftTorque, MotorPower, TotalLosses, AMK_current, AMK_speeds):
+def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current_limits, AMK_current):
+    # Calculate max charge current based on capacity
+    max_charge_current_now = max_charge_CRate * dataDict['Capacity'][i]
+
     # separate into regen/non-regen
     if dataDict['T_m'][i] < 0:
         if regen_on == "TRUE":
-            pass
+            # Check if the torque is below (in the negative direction) the rules limit of -5 Nm
+            if dataDict['T_m'][i] > -5:
+                # just set the output to ZERO
+                dataDict['Pack Current'][i] = 0
+                dataDict['P_battery'][i] = 0
+                dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i]
+            else:   # include regen
+                # Determine power output from motor
+                RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
+                Torque_index = findClosestMatch(ShaftTorque.iloc[RPM_index, :].to_list(), -dataDict['T_m'][i])  # switching the torque to be positive for this calculation
+                P_3phase = MotorPower.iloc[RPM_index, Torque_index]
+
+                # Determine power output from inverter
+                P_outofInverter = P_3phase * n_converter
+
+                # !! KEEP THIS TEXT !!
+                # <<< Battery Current Calculation >>>
+                # P_battery = 4*Pinv - I^2 * Rbussing
+                # ALSO: P_battery = I*pack_OC_voltage + I^2 * DCIR_cells
+                # Set these two equal to determine current (I): 4*Pinv - I2*Rbus = I*packOCVoltage + I2*Rcells, solve quadratic
+
+                # Determine current into pack
+                current_pair = quad_formula((bus_R_total + total_pack_ir), dataDict['Pack Voltage'][i], -4*P_outofInverter)
+                dataDict['Pack Current'][i] = -current_pair[0]                                                    # Setting negative current
+
+                # Check current limit
+                if abs(dataDict['Pack Current'][i]) > max_charge_current_now:
+                    regen_current_limits = regen_current_limits + 1             # increase the count of regen limits
+                    dataDict['Pack Current'][i] = -max_charge_current_now       # negative to indicate charging
+
+                    # Correct the negative motor torque - need to fix this
+                    current_index = findClosestMatch(AMK_current, abs(dataDict['Pack Current'][i]))
+                    dataDict['T_m'][i] = -ShaftTorque.iloc[RPM_index, current_index]
+                    
+                # Reset new battery input power
+                dataDict['P_battery'][i] = -(dataDict['Pack Voltage'][i] * abs(dataDict['Pack Current'][i]) + dataDict['Pack Current'][i]**2 * total_pack_ir)
+                # else:
+                #     # Otherwise, set power
+                #     # Switch to REMOVE instead of ADD the bussing voltage, also setting negative power to indicate regen
+                #     dataDict["P_battery"][i] = -(4 * P_outofInverter - dataDict['Pack Current'][i]**2 * bus_R_total)
+                
+                # Include losses
+                dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
         else: 
             # just set the output to ZERO
             dataDict['Pack Current'][i] = 0
@@ -468,26 +533,27 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, TotalLosses, AMK_current,
         # Power into the inverter
         P_intoInverter = P_3phase / n_converter
 
-        # Battery Current Calculation
+        # !! KEEP THIS TEXT !!
+        # <<< Battery Current Calculation >>>
         # P_battery = 4*Pinv + I^2 * Rbussing
         # ALSO: P_battery = I*pack_OC_voltage - I^2 * DCIR_cells
         # Set these two equal to determine current (I): 4*Pinv + I2*Rbus = I*packOCVoltage - I2*Rcells, solve quadratic
         # For now, I'll leave it at pack nominal voltage, until we get better SoC prediction - then I'll use OC voltage
                 # Next step will be to transform plots from Molicel into LookUp Tables for SoC determination
+
         current_pair = quad_formula((bus_R_total + total_pack_ir), -dataDict['Pack Voltage'][i], 4*P_intoInverter)
         dataDict['Pack Current'][i] = current_pair[1]   # CHANGE LATER TO DETERMINE WHICH IS WHICH!!
         dataDict["P_battery"][i] = 4 * P_intoInverter + dataDict['Pack Current'][i]**2 * bus_R_total
         dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
         dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
-        
-        # dataDict['P_battery'][i] = P_intoInverter * 4   # right now without losses
-        # dataDict['Pack Current'][i] = dataDict['P_battery'][i] / pack_nominal_voltage
 
-    return dataDict
+    return dataDict, regen_current_limits
 
 ### batteryChecks
 ## Battery safety checks
 def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limits, TotalLosses, MotorPower, current_limits):
+    # Calculate max current based on capacity
+    max_current_now = max_CRate * dataDict['Capacity'][i]
 
     # Check for over 80 kW
     if dataDict['P_battery'][i] > max_power:
@@ -550,8 +616,8 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
         
         ##############################################################################################
     # check for over the current limit
-    if dataDict['Pack Current'][i] >= max_current:
-        dataDict['Pack Current'][i] = max_current
+    if dataDict['Pack Current'][i] >= max_current_now:
+        dataDict['Pack Current'][i] = max_current_now
         
         # New battery power
         dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] - dataDict['Pack Current'][i]**2 * total_pack_ir
@@ -612,29 +678,50 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
 
     return dataDict, power_limits, current_limits
 
-### energyConsumed
-## Energy consumed
-def energyConsumed(dataDict, i):
+### SoCLookup
+## To find the voltage at the next capacity point using binary search and interpolation
+def SoCLookup(dataDict, i, current_index):
+    min_voltage_warning = False # reset min voltage warning
 
-    # Add up energy over time to get an approximation
-    # Trapezoidal Approximation (to be more accurate)
-    if i != 0:
-        # Start with energy used
-        # (a+b)/2 * dt
-        thisEnergy = 1/2*(dataDict['P_battery'][i] + dataDict['P_battery'][i-1]) * (dataDict['t0'][i] - dataDict['t0'][i-1])
-        thisEnergy_kWh = thisEnergy / 3600000   # convert to kWh
-        dataDict['Energy Use'][i+1] = dataDict['Energy Use'][i] + thisEnergy_kWh
+    # Isolate the correct capacity array
+    capacity_array = SoC_dict[SoC_col_level0[current_index]][:,0]   # Ah
+    voltage_array = SoC_dict[SoC_col_level0[current_index]][:,1]    # V
 
-        # Add up energy losses too
-        thisLoss = 1/2*(dataDict['Total Losses'][i] + dataDict['Total Losses'][i-1]) * (dataDict['t0'][i] - dataDict['t0'][i-1])
-        thisLoss_kWh = thisLoss / 3600000   # convert to kWh
-        dataDict['Total Losses NRG'][i+1] = dataDict['Total Losses NRG'][i] + thisLoss_kWh
-    
-    return dataDict
+    # Value to interpolate in this given set of values
+    next_cell_capacity = dataDict['Capacity'][i+1] / num_parallel_cells
+    f = scipy.interpolate.interp1d(capacity_array, voltage_array)   # create interpolation function
+    next_cell_voltage = f(next_cell_capacity)                       # determine new
+
+    dataDict['Pack Voltage'][i+1] = next_cell_voltage * num_series_cells
+
+    if next_cell_voltage < cell_min_voltage:
+        min_voltage_warning = True
+
+    return dataDict, min_voltage_warning
 
 ### extraBatteryCalcs
 ## Battery thermals
 def extraBatteryCalcs(dataDict, i):
+    #####################
+    # CAPACITY CALCULATIONS - Coulomb counting
+    dt = (dataDict['t0'][i+1] - dataDict['t0'][i]) / 3600        # convert to units of hours
+    dataDict['Capacity'][i+1] = dataDict['Capacity'][i] - dt * dataDict['Pack Current'][i]  # Determine next capacity based on capacity loss
+
+    # Determine closest current value
+    current_index = findClosestMatch(SoC_currents, abs(dataDict['Pack Current'][i]))
+
+    # Determine next voltage
+    dataDict, min_voltage_warning = SoCLookup(dataDict, i, current_index)
+
+    # Calculate SoC
+    dataDict['SoC Capacity'][i+1] = dataDict['Capacity'][i+1] / (max_capacity * num_parallel_cells) * 100
+
+    # Account for edge cases:
+        # if voltage is below minimum voltage - just leave it at minimum voltage for now
+        # if capacity is below minimum capacity - just leave it at that for now too!
+    if dataDict['Pack Voltage'][i+1] < pack_min_voltage:
+        dataDict['Pack Voltage'][i+1] = pack_min_voltage
+
     ########################################################################
     # Simple thermal calculations
     # P = I^2 * r - absolute of pack current to accout for regen also increasing pack temp
@@ -656,7 +743,27 @@ def extraBatteryCalcs(dataDict, i):
     # Split up calculation:
     calculation1 = (dataDict['Battery Temp'][i] - dataDict['Heatsink Temp'][i]) * num_series_cells / thermal_resistance_SE - air_tc * (dataDict['Heatsink Temp'][i] - air_temp)
     dataDict['Heatsink Temp'][i+1] = dataDict['Heatsink Temp'][i] + dt / (heatsink_mass * heatsink_cv) * calculation1
+    #######################################################################
+    return dataDict
 
+### energyConsumed
+## Energy consumed
+def energyConsumed(dataDict, i):
+
+    # Add up energy over time to get an approximation
+    # Trapezoidal Approximation (to be more accurate)
+    if i != 0:
+        # Start with energy used
+        # (a+b)/2 * dt
+        thisEnergy = 1/2*(dataDict['P_battery'][i] + dataDict['P_battery'][i-1]) * (dataDict['t0'][i] - dataDict['t0'][i-1])
+        thisEnergy_kWh = thisEnergy / 3600000   # convert to kWh
+        dataDict['Energy Use'][i+1] = dataDict['Energy Use'][i] + thisEnergy_kWh
+
+        # Add up energy losses too
+        thisLoss = 1/2*(dataDict['Total Losses'][i] + dataDict['Total Losses'][i-1]) * (dataDict['t0'][i] - dataDict['t0'][i-1])
+        thisLoss_kWh = thisLoss / 3600000   # convert to kWh
+        dataDict['Total Losses NRG'][i+1] = dataDict['Total Losses NRG'][i] + thisLoss_kWh
+    
     return dataDict
 
 ### plotDetails
@@ -683,16 +790,25 @@ def plotData(dataDict, currentTime):
     supTitle = "Point Mass Vehicle Simulation - " + track_choice + ".csv"
     fig.suptitle(supTitle)
 
+    # # Plot 1)
+    # # Regen vs Distance
+    # row = 0; col = 0
+    # x_axis = "Distance (m)"
+    # y_axis = "Torque (Nm)"
+    # plotTitle = "Motor Torque vs Distance"
+    # ax[row][col].plot(dataDict["r0"], dataDict["T_m"])       # plot the data
+    # plotDetails(x_axis, y_axis, plotTitle, ax[row][col])  # add the details
+
     # Plot 1)
-    # Regen vs Distance
+    # Battery Voltage vs Distance
     row = 0; col = 0
     x_axis = "Distance (m)"
-    y_axis = "Torque (Nm)"
-    plotTitle = "Motor Torque vs Distance"
-    # Convert the velocity from m/s to km/h
-    # dataDict['v0'] = dataDict['v0'] * 3.6
-    ax[row][col].plot(dataDict["r0"], dataDict["T_m"])       # plot the data
-    plotDetails(x_axis, y_axis, plotTitle, ax[row][col])  # add the detaila
+    y_axis = "Pack Voltage (V)"
+    plotTitle = "Pack Voltage vs Distance"
+    ax[row][col].plot(dataDict["r0"], dataDict["Pack Voltage"])       # plot the data
+    # Will also plot a red line to show the minimum voltage
+    ax[row][col].plot(dataDict['r0'], np.ones_like(dataDict['r0']) * pack_min_voltage, 'r')
+    plotDetails(x_axis, y_axis, plotTitle, ax[row][col])  # add the details
 
     # # Plot 2)
     # # Velocity vs Distance
@@ -721,15 +837,24 @@ def plotData(dataDict, currentTime):
     ax[row][col].plot(dataDict["r0"], dataDict["P_battery"])
     plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
 
+    # # Plot 4)
+    # # Battery Drooped Voltage
+    # row = 1; col = 1
+    # x_axis = "Distance (m)"
+    # y_axis = "Drooped Voltage (V)"
+    # plotTitle = "Drooped Voltage vs Distance"
+    # ax[row][col].plot(dataDict['r0'], dataDict['Drooped Voltage'])
+    # # Will also plot a red line to show the minimum voltage
+    # ax[row][col].plot(dataDict['t0'], np.ones_like(dataDict['t0']) * pack_min_voltage, 'r')
+    # plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
+
     # Plot 4)
     # Battery Drooped Voltage
     row = 1; col = 1
     x_axis = "Distance (m)"
-    y_axis = "Total Losses (kW)"
-    plotTitle = "Drooped Voltage vs Distance"
-    ax[row][col].plot(dataDict['r0'], dataDict['Drooped Voltage'])
-    # Will also plot a red line to show the minimum voltage
-    # ax[row][col].plot(dataDict['t0'], np.ones_like(dataDict['t0']) * pack_min_voltage, 'r')
+    y_axis = "SoC (%)"
+    plotTitle = "SoC vs Distance"
+    ax[row][col].plot(dataDict['r0'], dataDict['SoC Capacity'])
     plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
 
     return fig
