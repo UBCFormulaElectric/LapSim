@@ -235,8 +235,8 @@ elif track_choice == "SkidPad":
     numLaps = 1
     TRACK = "Sim_SkidPad.csv"
 elif track_choice == "Endurance":
-    numLaps = 22
-    TRACK = "Sim_Autocross.csv"
+    numLaps = 1
+    TRACK = "Sim_Endurance.csv"
 else:
     print("Incorrect track chosen. Please choose one of: Acceleration, Autocross, SkidPad, Endurance.")
 
@@ -689,6 +689,13 @@ def SoCLookup(dataDict, i, current_index):
 
     # Value to interpolate in this given set of values
     next_cell_capacity = dataDict['Capacity'][i+1] / num_parallel_cells
+
+    # To fix errors with going below minimum capacity:
+    min_cell_capacity = 0.3
+    if next_cell_capacity < min_cell_capacity:
+        dataDict['Capacity'][i+1] = min_cell_capacity * num_parallel_cells
+        next_cell_capacity = min_cell_capacity
+
     f = scipy.interpolate.interp1d(capacity_array, voltage_array)   # create interpolation function
     next_cell_voltage = f(next_cell_capacity)                       # determine new
 

@@ -236,13 +236,15 @@ elif track_choice == "SkidPad":
     numLaps = 1
     TRACK = "Sim_SkidPad.csv"
 elif track_choice == "Endurance":
-    numLaps = 22
-    TRACK = "Sim_Autocross.csv"
+    numLaps = 1
+    TRACK = "Sim_Endurance.csv"
 else:
     print("Incorrect track chosen. Please choose one of: Acceleration, Autocross, SkidPad, Endurance.")
 
 #####################################
 # IMPORT DATASETS
+
+print("Max Power Limit: ", max_power)
 
 ####################
 if motor_choice == "AMK":
@@ -474,6 +476,12 @@ for i in range(0, num_intervals-1):
     # Energy calculations
     dataDict = dynF.energyConsumed(dataDict, i)
 
+    # Update user on number of laps completed
+    LINE_CLEAR = '\x1b[2K'
+    print(LINE_CLEAR, end = '\r')
+    laps_completed = round(dataDict['r0'][i] / 1000, 0)
+    print("Laps Completed: %d " % laps_completed, end = '\r')
+
 # Energy use
 total_energy = dataDict['Energy Use'][-1] * numLaps
 total_energy_loss = dataDict['Total Losses NRG'][-1] * numLaps
@@ -524,19 +532,20 @@ with open(summaryOutPath, 'w') as textFile:
     textFile.write("Braking Limits: " + str(braking_limits) + "\n")
     textFile.write("Regen Current Limits: %d\n" % regen_current_limits)
 
-# Now I want to write all the columns to a dictionary and then input it into a dataframe - since it's easier to do column-wise
-dfData = pd.DataFrame(dataDict)
-dfData.dropna(inplace = True)
-
-# Write to csv
-dfData.to_csv(fullDataOutPath, index=False)
-
 # Create plots
 fig = dynF.plotData(dataDict, currentTime)
 figTitle = currentTime + "_" + cell_choice + '_' + track_choice + ".png"
 outputPlotPath = outputPlotPath + "\\" + cell_choice + "\\" + figTitle
 plt.savefig(outputPlotPath)
 fig.clear(True)
+
+if track_choice != "Endurance":
+    # Now I want to write all the columns to a dictionary and then input it into a dataframe - since it's easier to do column-wise
+    dfData = pd.DataFrame(dataDict)
+    dfData.dropna(inplace = True)
+
+    # Write to csv
+    dfData.to_csv(fullDataOutPath, index=False)
 
 print("Completed")
 
