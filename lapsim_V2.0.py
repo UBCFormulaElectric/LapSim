@@ -6,6 +6,7 @@ import csv
 import json
 import dynFunctions as dynF
 import datetime
+import pickle
 
 ############################################################################
 # Mallory Moxham - UBC Formula Electric - July 2024
@@ -28,6 +29,8 @@ AMKData = "data_prep_scripts/AMK_data.json"
 OLData = "sim_inputs_and_outputs/OptimumLapSim61.40.csv"
 # Optimum Lap Plot Path
 OLPlotPath = "sim_inputs_and_outputs/"
+# SoC Curve Path (only for P28A cause that's what we've committed to)
+SoCPath = "data_prep_scripts/P28_SoC_curve.pkl"
 
 # USER-INPUT CONSTANTS
 # STRING CONSTANTS
@@ -134,14 +137,25 @@ cell_max_voltage = cellData.loc[cell_choice]['maxVoltage']          # V - SINGLE
 cell_nominal_voltage = cellData.loc[cell_choice]['nomVoltage']      # V - SINGLE CELL NOMINAL VOLTAGE
 cell_min_voltage = cellData.loc[cell_choice]['minVoltage']          # V - SINGLE CELL MIN VOLTAGE
 cell_max_current = cellData.loc[cell_choice]['maxCurrent']          # A - SINGLE CELL MAX CURRENT
+cell_max_charge_current = cellData.loc[cell_choice]['maxChargeCurrent'] # A - SINGLE CELL MAX CHARGE CURRENT
 max_capacity = cellData.loc[cell_choice]['capacity']                # Ah - SINGLE CELL MAX CAPACITY
 max_CRate = cell_max_current / max_capacity                         # N/A - SINGLE CELL MAXIMUM DISCHARGE C-RATE
+max_charge_CRate = cell_max_charge_current / max_capacity           # N/A - SINGLE CELL MAXIMUM CHARGE C-RATE
 single_cell_ir = cellData.loc[cell_choice]['DCIR']                  # Ohms - SINGLE CELL DCIR
 cell_mass = cellData.loc[cell_choice]['mass']                       # kg - SINGLE CELL MASS
 battery_cv = cellData.loc[cell_choice]['batteryCv']                 # J/kgC - SINGLE CELL SPECIFIC HEAT CAPACITY
 num_parallel_cells = cellData.loc[cell_choice]['numParallel']       # N/A - NUMBER OF PARALLEL ELEMENTS
 num_series_cells = cellData.loc[cell_choice]['numSeries']           # N/A - NUMBER OF SERIES ELEMENTS
 expected_pack_mass = cellData.loc[cell_choice]['packWeight']        # kg - WEIGHT OF ACCUMULATOR
+
+# Import SoC curve data
+with open(SoCPath, "rb") as file:
+    SoC_dict = pickle.load(file)
+
+# Create column lists
+SoC_currents = [0.56, 2.8, 10, 20, 30]  # A
+SoC_col_level0 = list(SoC_dict.keys())  # Key names for top level of dict
+# For the second part - the first column is always the capacity and the second is the voltage
 
 ###################################################################################
 # CALCULATED CONSTANTS
@@ -163,14 +177,17 @@ v_air = 0                                                                   # ai
 radsToRpm = 1 / (2 * math.pi) * 60                                          # rad/s --> rpm
 
 # Battery Pack - Calculated Values
-capacity0 = max_capacity * initial_SoC                                      # Ah (initial state of charge)
+initial_SoC = initial_SoC / 100                                             # Convert to fractional form!!
+cell_capacity_initial = max_capacity * initial_SoC                          # Ah (initial state of charge for single cell)
+pack_capacity_initial = cell_capacity_initial * num_parallel_cells          # Ah (initial state of charge for pack)
 num_cells = num_series_cells * num_parallel_cells                           # Total number of cells
 pack_nominal_voltage = cell_nominal_voltage * num_series_cells              # V - Pack nominal voltage
 pack_max_voltage = cell_max_voltage * num_series_cells                      # V - Pack maximum voltage
 pack_min_voltage = cell_min_voltage * num_series_cells                      # V - Pack minimum voltage
 total_pack_ir = single_cell_ir / num_parallel_cells * num_series_cells      # ohms - total IR
-knownTotalEnergy = initial_SoC * capacity0 * pack_nominal_voltage / 1000    # kWh - based on nominal voltage
+knownTotalEnergy = pack_capacity_initial * pack_max_voltage / 1000          # kWh - maximum pack energy
 max_current = num_parallel_cells * max_CRate * max_capacity                 # A - Max current through pack
+max_charge_current = num_parallel_cells * cell_max_charge_current           # A - Max charge current through pack
 # !!! Total known energy is approximately SoC * nominal voltage * max capacity
 
 # !!!
@@ -182,7 +199,7 @@ bus_R_total = bus_R_unsplit + bus_R_split / 2                                   
 # Car Mass - Calculated Values
 total_cell_mass = cell_mass*num_cells                                       # kg
 cooled_cell_mass = total_cell_mass*(1 + air_factor_m + water_factor_m)      # kg
-cell_aux_mass = cell_aux_factor*(capacity0 * pack_nominal_voltage / 1000)   # kg
+cell_aux_mass = cell_aux_factor * pack_nominal_voltage * pack_capacity_initial / 100  # kg - at the moment, based on nominal energy
 mass = no_cells_car_mass + expected_pack_mass                               # kg
 # mass = no_cells_car_mass + total_cell_mass                                  # kg
 #+ cooled_cell_mass + cell_aux_mass + heatsink_mass # kg
@@ -219,13 +236,15 @@ elif track_choice == "SkidPad":
     numLaps = 1
     TRACK = "Sim_SkidPad.csv"
 elif track_choice == "Endurance":
-    numLaps = 22
-    TRACK = "Sim_Autocross.csv"
+    numLaps = 1
+    TRACK = "Sim_Endurance.csv"
 else:
     print("Incorrect track chosen. Please choose one of: Acceleration, Autocross, SkidPad, Endurance.")
 
 #####################################
 # IMPORT DATASETS
+
+print("Max Power Limit: ", max_power)
 
 ####################
 if motor_choice == "AMK":
@@ -407,11 +426,11 @@ for i in range(0, len(headers)):
     dataDict[headers[i]] = np.zeros(num_intervals)
 
 # Add some starting values
-dataDict['Capacity'][0] = capacity0
+dataDict['Capacity'][0] = pack_capacity_initial
 dataDict['SoC Capacity'][0] = initial_SoC
 dataDict['Battery Temp'][0] = batteryTemp0
 dataDict['Heatsink Temp'][0] = heatsink_temp_0
-dataDict['Pack Voltage'] = np.ones(num_intervals) * pack_nominal_voltage # Change later once we get better SoC prediction
+dataDict['Pack Voltage'][0] = pack_max_voltage  # Without SoC prediction, we'll set this to be nominal voltage ALL THE WAY!! with a np.ones * nom voltage
 
 # DEBUG CONSTANTS
 longitudinal_traction_limits = 0
@@ -419,6 +438,7 @@ max_speed_limits = 0
 power_limits = 0
 current_limits = 0
 braking_limits = 0
+regen_current_limits = 0
 
 # CALCULATIONS
 for i in range(0, num_intervals-1):
@@ -445,7 +465,7 @@ for i in range(0, num_intervals-1):
     # BATTERY CALCULATIONS
 
     # Determine battery power used during the race
-    dataDict = dynF.batteryPower(dataDict, i, ShaftTorque, MotorPower, TotalLosses, AMK_current, AMK_speeds)
+    dataDict, regen_current_limits = dynF.batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current_limits, AMK_current)
 
     # Add safety checks on the battery here
     dataDict, power_limits, current_limits = dynF.batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limits, TotalLosses, MotorPower, current_limits)
@@ -455,6 +475,12 @@ for i in range(0, num_intervals-1):
 
     # Energy calculations
     dataDict = dynF.energyConsumed(dataDict, i)
+
+    # Update user on number of laps completed
+    LINE_CLEAR = '\x1b[2K'
+    print(LINE_CLEAR, end = '\r')
+    laps_completed = round(dataDict['r0'][i] / 1000, 0)
+    print("Laps Completed: %d " % laps_completed, end = '\r')
 
 # Energy use
 total_energy = dataDict['Energy Use'][-1] * numLaps
@@ -473,13 +499,15 @@ dataDict['v0'] = dataDict['v0'] * 3.6            # convert to km/h
 
 # Print relevant outputs to terminal
 print('Energy Used (This Sim): ' + str(total_energy) + ' kWh')
+if track_choice == "Autocross":
+    print('Energy Used (22 Laps - Endurance): %.6f kWh' % dataDict['Energy Use'][-1] * 22)
 print("Total Energy Lost (This Sim): %.3f kWh" % total_energy_loss)
 print("Max Power (This Sim): " + str(maxPower) + " kW")
 print("Avg Power (This Sim): " + str(averagePower) + " kW")
 print("Car Mass: " + str(mass) + " kg")
 print("Lap Time: " + str(dataDict['t0'][-1]) + " s")
 print("Total Time: " + str(dataDict['t0'][-1] * numLaps / 60) + " mins")
-print("Average pack current: ", np.mean(dataDict['Pack Current']))
+print("Average pack current: %.6f A" % np.mean(dataDict['Pack Current']))
 # print("Final SoC(c): ", dataDict['SoC Capacity'][-1], "%")
 
 # Write all terminal output to a *.txt file
@@ -488,10 +516,12 @@ outfileName =  currentTime + "_" + cell_choice + '_' + track_choice + ".txt"
 summaryOutPath = summaryOutPath + outfileName
 with open(summaryOutPath, 'w') as textFile:
     textFile.write('Energy Used (This Sim): ' + str(total_energy) + ' kWh\n')
+    if track_choice == "Autocross":
+        textFile.write('Energy Used (22 Laps - Endurance): %.6f kWh' % dataDict['Energy Use'][-1] * 22)
     textFile.write("Total Energy Lost (This Sim): %.3f kWh\n" % total_energy_loss)
     textFile.write("Max Power (This Sim): " + str(maxPower) + " kW\n")
     textFile.write("Avg Power (This Sim): " + str(averagePower) + " kW\n")
-    textFile.write("Average pack current: ", np.mean(dataDict['Pack Current']))
+    textFile.write("Average pack current: %.3f A\n" % np.mean(dataDict['Pack Current']))
     textFile.write("Car Mass: " + str(mass) + " kg\n")
     textFile.write("Lap Time: " + str(dataDict['t0'][-1]) + " s\n")
     textFile.write("Total Time: " + str(dataDict['t0'][-1] * numLaps / 60) + " mins\n")
@@ -500,13 +530,7 @@ with open(summaryOutPath, 'w') as textFile:
     textFile.write("Power Limits: " + str(power_limits) + "\n")
     textFile.write("Current Limits: " + str(current_limits) + "\n")
     textFile.write("Braking Limits: " + str(braking_limits) + "\n")
-
-# Now I want to write all the columns to a dictionary and then input it into a dataframe - since it's easier to do column-wise
-dfData = pd.DataFrame(dataDict)
-dfData.dropna(inplace = True)
-
-# Write to csv
-dfData.to_csv(fullDataOutPath, index=False)
+    textFile.write("Regen Current Limits: %d\n" % regen_current_limits)
 
 # Create plots
 fig = dynF.plotData(dataDict, currentTime)
@@ -514,6 +538,14 @@ figTitle = currentTime + "_" + cell_choice + '_' + track_choice + ".png"
 outputPlotPath = outputPlotPath + "\\" + cell_choice + "\\" + figTitle
 plt.savefig(outputPlotPath)
 fig.clear(True)
+
+if track_choice != "Endurance":
+    # Now I want to write all the columns to a dictionary and then input it into a dataframe - since it's easier to do column-wise
+    dfData = pd.DataFrame(dataDict)
+    dfData.dropna(inplace = True)
+
+    # Write to csv
+    dfData.to_csv(fullDataOutPath, index=False)
 
 print("Completed")
 
