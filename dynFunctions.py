@@ -543,7 +543,7 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
 
         current_pair = quad_formula((bus_R_total + total_pack_ir), -dataDict['Pack Voltage'][i], 4*P_intoInverter)
         dataDict['Pack Current'][i] = current_pair[1]   # CHANGE LATER TO DETERMINE WHICH IS WHICH!!
-        dataDict["P_battery"][i] = 4 * P_intoInverter + dataDict['Pack Current'][i]**2 * bus_R_total
+        dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] - dataDict['Pack Current'][i]**2 * total_pack_ir
         dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
         dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
 
