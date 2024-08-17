@@ -481,7 +481,7 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
                 # just set the output to ZERO
                 dataDict['Pack Current'][i] = 0
                 dataDict['P_battery'][i] = 0
-                dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i]
+                dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
             else:   # include regen
                 # Determine power output from motor
                 RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
@@ -494,11 +494,11 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
                 # !! KEEP THIS TEXT !!
                 # <<< Battery Current Calculation >>>
                 # P_battery = 4*Pinv - I^2 * Rbussing
-                # ALSO: P_battery = I*pack_OC_voltage + I^2 * DCIR_cells
-                # Set these two equal to determine current (I): 4*Pinv - I2*Rbus = I*packOCVoltage + I2*Rcells, solve quadratic
+                # ALSO: P_battery = I*Pack Voltage - I^2 * DCIR_cells
+                # Set these two equal to determine current (I): 4*Pinv - I2*Rbus = I*Pack Voltage - I2*Rcells, solve quadratic
 
-                # Determine current into pack
-                current_pair = quad_formula((bus_R_total + total_pack_ir), dataDict['Pack Voltage'][i], -4*P_outofInverter)
+                # Determine current into pack: - total_pack_ir
+                current_pair = quad_formula((bus_R_total), dataDict['Pack Voltage'][i], -4*P_outofInverter)
                 dataDict['Pack Current'][i] = -current_pair[0]                                                    # Setting negative current
 
                 # Check current limit
@@ -511,7 +511,7 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
                     dataDict['T_m'][i] = -ShaftTorque.iloc[RPM_index, current_index]
                     
                 # Reset new battery input power
-                dataDict['P_battery'][i] = -(dataDict['Pack Voltage'][i] * abs(dataDict['Pack Current'][i]) + dataDict['Pack Current'][i]**2 * total_pack_ir)
+                dataDict['P_battery'][i] = -(dataDict['Pack Voltage'][i] * abs(dataDict['Pack Current'][i]))
                 # else:
                 #     # Otherwise, set power
                 #     # Switch to REMOVE instead of ADD the bussing voltage, also setting negative power to indicate regen
@@ -519,11 +519,12 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
                 
                 # Include losses
                 dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
+                dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
         else: 
             # just set the output to ZERO
             dataDict['Pack Current'][i] = 0
             dataDict['P_battery'][i] = 0
-            dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i]
+            dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
     else:
         # determine current pulled from each motor
         RPM_index = findClosestMatch(AMK_speeds, dataDict['w_m'][i])
@@ -536,14 +537,15 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
         # !! KEEP THIS TEXT !!
         # <<< Battery Current Calculation >>>
         # P_battery = 4*Pinv + I^2 * Rbussing
-        # ALSO: P_battery = I*pack_OC_voltage - I^2 * DCIR_cells
+        # ALSO: P_battery = I * Pack Voltage = I * (pack_OC_voltage - I * DCIR_cells) = I*packOCVoltage - I^2*DCIR_cells
         # Set these two equal to determine current (I): 4*Pinv + I2*Rbus = I*packOCVoltage - I2*Rcells, solve quadratic
         # For now, I'll leave it at pack nominal voltage, until we get better SoC prediction - then I'll use OC voltage
                 # Next step will be to transform plots from Molicel into LookUp Tables for SoC determination
 
-        current_pair = quad_formula((bus_R_total + total_pack_ir), -dataDict['Pack Voltage'][i], 4*P_intoInverter)
+        # + total_pack_ir
+        current_pair = quad_formula((bus_R_total), -dataDict['Pack Voltage'][i], 4*P_intoInverter)
         dataDict['Pack Current'][i] = current_pair[1]   # CHANGE LATER TO DETERMINE WHICH IS WHICH!!
-        dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] - dataDict['Pack Current'][i]**2 * total_pack_ir
+        dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] # - dataDict['Pack Current'][i]**2 * total_pack_ir
         dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
         dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
 
@@ -559,8 +561,7 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
     if dataDict['P_battery'][i] > max_power:
         dataDict['P_battery'][i] = max_power
 
-        current_pair = quad_formula(total_pack_ir, -dataDict['Pack Voltage'][i], dataDict['P_battery'][i])
-        dataDict['Pack Current'][i] = current_pair[1]
+        dataDict['Pack Current'][i] = max_power / dataDict['Pack Voltage'][i]
         P_intoInverter = (dataDict['P_battery'][i] - dataDict['Pack Current'][i]**2 * bus_R_total) / 4
         P_intoMotor = P_intoInverter * n_converter
 
@@ -611,8 +612,8 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
         # dataDict['T_batterylimit_debug'][i] = dataDict['T_m'][i]
 
         # Checking to see if voltage-drooping is present in the motor current measurement
-        if dataDict['Pack Current'][i] != 0:
-            dataDict['Drooped Voltage'][i] = dataDict['P_battery'][i] / dataDict['Pack Current'][i]
+        dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
+        dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
         
         ##############################################################################################
     # check for over the current limit
@@ -620,7 +621,7 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
         dataDict['Pack Current'][i] = max_current_now
         
         # New battery power
-        dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] - dataDict['Pack Current'][i]**2 * total_pack_ir
+        dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] # - dataDict['Pack Current'][i]**2 * total_pack_ir
         P_intoInverter = (dataDict['P_battery'][i] - dataDict['Pack Current'][i]**2 * bus_R_total) / 4
         P_intoMotor = P_intoInverter * n_converter
 
@@ -671,8 +672,8 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
         # dataDict['T_batterylimit_debug'][i] = dataDict['T_m'][i]
 
         # Checking to see if voltage-drooping is present in the motor current measurement
-        if dataDict['Pack Current'][i] != 0:
-            dataDict['Drooped Voltage'][i] = dataDict['P_battery'][i] / dataDict['Pack Current'][i]
+        dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
+        dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
 
         ##############################################################################################
 
@@ -701,6 +702,7 @@ def SoCLookup(dataDict, i, current_index):
 
     dataDict['Pack Voltage'][i+1] = next_cell_voltage * num_series_cells
 
+    # Just keeping the program running if it hits < 0% Soc
     if next_cell_voltage < cell_min_voltage:
         min_voltage_warning = True
 
@@ -804,9 +806,11 @@ def plotData(dataDict, currentTime):
         x_axis = "Distance (m)"
         y_axis = "Pack Voltage (V)"
         plotTitle = "Pack Voltage vs Distance"
-        ax[row][col].plot(dataDict["r0"], dataDict["Pack Voltage"])       # plot the data
+        ax[row][col].plot(dataDict["r0"], dataDict["Pack Voltage"], label="Pack Voltage")       # plot the data
+        ax[row][col].plot(dataDict["r0"], dataDict["Drooped Voltage"], label="Drooped Voltage")
         # Will also plot a red line to show the minimum voltage
         ax[row][col].plot(dataDict['r0'], np.ones_like(dataDict['r0']) * pack_min_voltage, 'r')
+        ax[row][col].legend()
         plotDetails(x_axis, y_axis, plotTitle, ax[row][col])  # add the details
 
         # Plot 4)
@@ -850,9 +854,9 @@ def plotData(dataDict, currentTime):
         # Velocity vs Distance
         row = 0; col = 1
         x_axis = "Distance (s)"
-        y_axis = "Speed (km/h)"
-        plotTitle = "Speed vs Distance"
-        ax[row][col].plot(dataDict["r0"], dataDict["v0"])
+        y_axis = "Motor Torque (Nm)"
+        plotTitle = "Torque vs Distance"
+        ax[row][col].plot(dataDict["r0"], dataDict["T_m"])
         plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
 
         # Plot 3)
@@ -873,6 +877,44 @@ def plotData(dataDict, currentTime):
         ax[row][col].plot(dataDict['r0'], dataDict['Drooped Voltage'])
         # Will also plot a red line to show the minimum voltage
         ax[row][col].plot(dataDict['r0'], np.ones_like(dataDict['r0']) * pack_min_voltage, 'r')
+        plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
+    
+    else:
+        
+        # Plot 4)
+        # Battery Current vs time
+        row = 0; col = 0
+        x_axis = "Distance (m)"
+        y_axis = "Battery Current (A)"
+        plotTitle = "Battery Current vs Distance"
+        ax[row][col].plot(dataDict["r0"], dataDict["Pack Current"])
+        plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
+
+        # Plot 2)
+        # Velocity vs Distance
+        row = 0; col = 1
+        x_axis = "Distance (s)"
+        y_axis = "Speed (km/h)"
+        plotTitle = "Speed vs Distance"
+        ax[row][col].plot(dataDict["r0"], dataDict["v0"])
+        plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
+
+        # Plot 3)
+        # Battery power vs time
+        row = 1; col = 0
+        x_axis = "Distance (m)"
+        y_axis = "Battery Power (kW)"
+        plotTitle = "Battery Power vs Distance"
+        ax[row][col].plot(dataDict["r0"], dataDict["P_battery"])
+        plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
+
+        # Plot 4)
+        # Battery Drooped Voltage
+        row = 1; col = 1
+        x_axis = "Distance (m)"
+        y_axis = "Torque (Nm)"
+        plotTitle = "Motor Torque vs Distance"
+        ax[row][col].plot(dataDict['r0'], dataDict['T_m'])
         plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
 
     return fig

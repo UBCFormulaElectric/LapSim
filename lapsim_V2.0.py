@@ -482,6 +482,11 @@ for i in range(0, num_intervals-1):
         print(LINE_CLEAR, end = '\r')
         print("Laps Completed: %d" % laps_completed, end='\r')
 
+    # if dataDict['r0'][i] > 36.4:
+    #     print("debug distance: %.2f m" % dataDict["r0"][i])
+    #     print("debug current: %.3f A" % dataDict["Pack Current"][i])
+    #     print("debug power: %.3f kW" % (dataDict["P_battery"][i]/1000))
+
 # Energy use
 total_energy = dataDict['Energy Use'][-1] * numLaps
 total_energy_loss = dataDict['Total Losses NRG'][-1] * numLaps
@@ -517,7 +522,7 @@ summaryOutPath = summaryOutPath + outfileName
 with open(summaryOutPath, 'w') as textFile:
     textFile.write('Energy Used (This Sim): ' + str(total_energy) + ' kWh\n')
     if track_choice == "Autocross":
-        textFile.write('Energy Used (22 Laps - Endurance): %.6f kWh' % (dataDict['Energy Use'][-1] * 22))
+        textFile.write('Energy Used (22 Laps - Endurance): %.6f kWh\n' % (dataDict['Energy Use'][-1] * 22))
     textFile.write("Total Energy Lost (This Sim): %.3f kWh\n" % total_energy_loss)
     textFile.write("Max Power (This Sim): " + str(maxPower) + " kW\n")
     textFile.write("Avg Power (This Sim): " + str(averagePower) + " kW\n")
