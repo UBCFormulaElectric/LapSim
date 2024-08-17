@@ -153,7 +153,7 @@ with open(SoCPath, "rb") as file:
     SoC_dict = pickle.load(file)
 
 # Create column lists
-SoC_currents = [0.56, 2.8, 10, 20, 30]  # A
+SoC_currents = [-5.6, -2.8, 0.56, 2.8, 10, 20, 30]  # A
 SoC_col_level0 = list(SoC_dict.keys())  # Key names for top level of dict
 # For the second part - the first column is always the capacity and the second is the voltage
 
@@ -244,7 +244,7 @@ else:
 #####################################
 # IMPORT DATASETS
 
-print("Max Power Limit: ", max_power)
+print("Max Power Limit: %d W" % max_power)
 
 ####################
 if motor_choice == "AMK":
@@ -404,14 +404,11 @@ headers = ['v0',                    # velocity vector (m/s)
            "F_RR",                  # rolling resistance (N)
            "F_net_tan",             # net force in the tangential direction (N)
            "a_tan0",                # tangential acceleration (m/s^2)
-           "a_norm0",               # normal/centripetal acceleration (m/s^2)
            "P_battery",             # battery power (kW)
            "Pack Voltage",          # battery voltage (V)
-           "P_battery_regen",       # battery regen power (kW)
-           "Capacity",              # Battery capacity (Ah)
+           "Pack Capacity",         # Battery capacity (Ah)
            "Pack Current",          # Battery pack current (A)
            "Energy Use",            # energy use over time (kWh)
-           "SoC Energy",            # state of charge - energy based (%)
            "SoC Capacity",          # state of charge - capacity based (%)
            "Dissipated Power",      # Power dissipated from batteries due to internal resistance (W)
            "Battery Temp",          # Temperature of battery pack (C)
@@ -426,7 +423,7 @@ for i in range(0, len(headers)):
     dataDict[headers[i]] = np.zeros(num_intervals)
 
 # Add some starting values
-dataDict['Capacity'][0] = pack_capacity_initial
+dataDict['Pack Capacity'][0] = pack_capacity_initial
 dataDict['SoC Capacity'][0] = initial_SoC
 dataDict['Battery Temp'][0] = batteryTemp0
 dataDict['Heatsink Temp'][0] = heatsink_temp_0
@@ -439,6 +436,7 @@ power_limits = 0
 current_limits = 0
 braking_limits = 0
 regen_current_limits = 0
+laps_completed = 0
 
 # CALCULATIONS
 for i in range(0, num_intervals-1):
@@ -478,9 +476,11 @@ for i in range(0, num_intervals-1):
 
     # Update user on number of laps completed
     LINE_CLEAR = '\x1b[2K'
-    print(LINE_CLEAR, end = '\r')
-    laps_completed = round(dataDict['r0'][i] / 1000, 0)
-    print("Laps Completed: %d " % laps_completed, end = '\r')
+
+    if laps_completed != round(dataDict['r0'][i] / 1000, 0):
+        laps_completed = round(dataDict['r0'][i] / 1000, 0)
+        print(LINE_CLEAR, end = '\r')
+        print("Laps Completed: %d" % laps_completed, end='\r')
 
 # Energy use
 total_energy = dataDict['Energy Use'][-1] * numLaps
@@ -500,7 +500,7 @@ dataDict['v0'] = dataDict['v0'] * 3.6            # convert to km/h
 # Print relevant outputs to terminal
 print('Energy Used (This Sim): ' + str(total_energy) + ' kWh')
 if track_choice == "Autocross":
-    print('Energy Used (22 Laps - Endurance): %.6f kWh' % dataDict['Energy Use'][-1] * 22)
+    print('Energy Used (22 Laps - Endurance): %.6f kWh' % (dataDict['Energy Use'][-1] * 22))
 print("Total Energy Lost (This Sim): %.3f kWh" % total_energy_loss)
 print("Max Power (This Sim): " + str(maxPower) + " kW")
 print("Avg Power (This Sim): " + str(averagePower) + " kW")
@@ -517,7 +517,7 @@ summaryOutPath = summaryOutPath + outfileName
 with open(summaryOutPath, 'w') as textFile:
     textFile.write('Energy Used (This Sim): ' + str(total_energy) + ' kWh\n')
     if track_choice == "Autocross":
-        textFile.write('Energy Used (22 Laps - Endurance): %.6f kWh' % dataDict['Energy Use'][-1] * 22)
+        textFile.write('Energy Used (22 Laps - Endurance): %.6f kWh' % (dataDict['Energy Use'][-1] * 22))
     textFile.write("Total Energy Lost (This Sim): %.3f kWh\n" % total_energy_loss)
     textFile.write("Max Power (This Sim): " + str(maxPower) + " kW\n")
     textFile.write("Avg Power (This Sim): " + str(averagePower) + " kW\n")
@@ -539,20 +539,31 @@ outputPlotPath = outputPlotPath + "\\" + cell_choice + "\\" + figTitle
 plt.savefig(outputPlotPath)
 fig.clear(True)
 
-if track_choice != "Endurance":
-    # Now I want to write all the columns to a dictionary and then input it into a dataframe - since it's easier to do column-wise
-    dfData = pd.DataFrame(dataDict)
-    dfData.dropna(inplace = True)
+# Now I want to write all the columns to a dictionary and then input it into a dataframe - since it's easier to do column-wise
+dfData = pd.DataFrame(dataDict)
+dfData.dropna(inplace = True)
 
-    # Write to csv
-    dfData.to_csv(fullDataOutPath, index=False)
+if track_choice == "Autocross":
+    # Drop data to 10th of output size
+    dfData = dfData.iloc[::10]
+elif track_choice == "Endurance":
+    # Drop data size to a 100th of output size
+    dfData = dfData.iloc[::100]
+elif track_choice == "SkidPad":
+    # Drop data to 1/2 of output size
+    dfdata = dfData.iloc[::2]
+
+# Don't change the acceleration output
+
+# Write to csv
+dfData.to_csv(fullDataOutPath, index=False)
 
 print("Completed")
 
 ###################################################
 # OPTIMUM LAP VELOCITY PROFILE COMPARISON
 
-if track_choice == "Autocross" or track_choice == "Endurance":
+if track_choice == "Autocross":
 
     # Optimum Lap Comparison
     import pandas as pd

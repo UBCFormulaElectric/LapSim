@@ -1,0 +1,14 @@
+Energy Used (This Sim): 0.33199096184711196 kWh
+Energy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhEnergy Used (22 Laps - Endurance): 0.331991 kWhTotal Energy Lost (This Sim): 0.108 kWh
+Max Power (This Sim): 40.0 kW
+Avg Power (This Sim): 19.538465716113162 kW
+Average pack current: 46.989 A
+Car Mass: 227.4 kg
+Lap Time: 68.5034860395687 s
+Total Time: 1.141724767326145 mins
+Longitudinal traction limits: 0
+Max Speed Limits: 41175
+Power Limits: 39707
+Current Limits: 0
+Braking Limits: 10419
+Regen Current Limits: 10413
