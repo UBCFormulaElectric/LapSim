@@ -43,5 +43,8 @@ This is the most recent version of the lap simulation. I am now keeping it up-to
 * Battery thermal model will also need to be redone as we will be using new cells with different IR and thermal characteristics
 * Still need to add analysis for REGEN - shouldn't be super difficult based on this new set-up
 
-### Questions?
+## Validation Files
+To get the correct files for the validation testing, please see this google drive folder: https://drive.google.com/open?id=1DonZTSyBmcpJp6LTFso0GhIdvSxRCfn9&usp=drive_fs 
+
+## Questions?
 Please reach out to me if you want help with navigating this! I am happy to show you over a call or in-person how to work with the sim. Also let me know if you want specific features or code added to it, and I'd be happy to work with you to integrate your ideas.
