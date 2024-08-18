@@ -165,10 +165,7 @@ g = 9.81                                                                    # m/
 
 # Motor
 motor_choice = "AMK"                                                        # For now the sim is only function with AMK
-if motor_choice == 'AMK':
-    GR = 14.33                                                              # Gear Ratio - AMK
-else:
-    GR = 4.2                                                                # Gear Ratio - emrax
+GR = 14.33                                                                  # Gear Ratio - emrax
 wheel_diameter = 18 * 0.0254                                                # m - wheel diameter
 wheel_radius = wheel_diameter / 2                                           # m - wheel radius
 rho_air = 1.204                                                             # air density: kg / m^3
