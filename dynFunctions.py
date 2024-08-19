@@ -186,6 +186,9 @@ max_current = num_parallel_cells * max_CRate * max_capacity                 # A 
 max_charge_current = num_parallel_cells * cell_max_charge_current           # A - Max charge current through pack
 # !!! Total known energy is approximately SoC * nominal voltage * max capacity
 
+# !!! LV Power Use
+LV_power = 400                                                              # W - LV Power Use
+
 # !!!
 # Bussing calculations
 bus_R_unsplit = bussing_resistivity * bussing_length_unsplit / bussing_crossSecnArea    # Ohms
@@ -197,8 +200,6 @@ total_cell_mass = cell_mass*num_cells                                       # kg
 cooled_cell_mass = total_cell_mass*(1 + air_factor_m + water_factor_m)      # kg
 cell_aux_mass = cell_aux_factor * pack_nominal_voltage * pack_capacity_initial / 100  # kg - at the moment, based on nominal energy
 mass = no_cells_car_mass + expected_pack_mass                               # kg
-# mass = no_cells_car_mass + total_cell_mass                                  # kg
-#+ cooled_cell_mass + cell_aux_mass + heatsink_mass # kg
 
 # Thermals - Calculated Values
 battery_heat_capacity = battery_cv*cell_mass                                # J/C
@@ -475,9 +476,9 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
         if regen_on == "TRUE":
             # Check if the torque is below (in the negative direction) the rules limit of -5 Nm
             if dataDict['T_m'][i] > -5:
-                # just set the output to ZERO
-                dataDict['Pack Current'][i] = 0
-                dataDict['P_battery'][i] = 0
+                # just set the output to ZERO (with only LV Power Usage)
+                dataDict['P_battery'][i] = LV_power
+                dataDict['Pack Current'][i] = dataDict['P_battery'][i] / dataDict['Pack Voltage'][i]
                 dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
             else:   # include regen
                 # Determine power output from motor
@@ -508,7 +509,7 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
                     dataDict['T_m'][i] = -ShaftTorque.iloc[RPM_index, current_index]
                     
                 # Reset new battery input power
-                dataDict['P_battery'][i] = -(dataDict['Pack Voltage'][i] * abs(dataDict['Pack Current'][i]))
+                dataDict['P_battery'][i] = -(dataDict['Pack Voltage'][i] * abs(dataDict['Pack Current'][i])) + LV_power
                 # else:
                 #     # Otherwise, set power
                 #     # Switch to REMOVE instead of ADD the bussing voltage, also setting negative power to indicate regen
@@ -518,9 +519,9 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
                 dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
                 dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
         else: 
-            # just set the output to ZERO
-            dataDict['Pack Current'][i] = 0
-            dataDict['P_battery'][i] = 0
+            # just set the output to ZERO (with only LV Power usage)
+            dataDict['P_battery'][i] = LV_power
+            dataDict['Pack Current'][i] = dataDict['P_battery'][i] / dataDict['Pack Voltage'][i]
             dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
     else:
         # determine current pulled from each motor
@@ -542,7 +543,7 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
         # + total_pack_ir
         current_pair = quad_formula((bus_R_total), -dataDict['Pack Voltage'][i], 4*P_intoInverter)
         dataDict['Pack Current'][i] = current_pair[1]   # CHANGE LATER TO DETERMINE WHICH IS WHICH!!
-        dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] # - dataDict['Pack Current'][i]**2 * total_pack_ir
+        dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] + LV_power # - dataDict['Pack Current'][i]**2 * total_pack_ir
         dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
         dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
 
@@ -559,7 +560,7 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
         dataDict['P_battery'][i] = max_power
 
         dataDict['Pack Current'][i] = max_power / dataDict['Pack Voltage'][i]
-        P_intoInverter = (dataDict['P_battery'][i] - dataDict['Pack Current'][i]**2 * bus_R_total) / 4
+        P_intoInverter = (dataDict['P_battery'][i] - dataDict['Pack Current'][i]**2 * bus_R_total - LV_power) / 4
         P_intoMotor = P_intoInverter * n_converter
 
         # Determine resulting max torque
@@ -619,7 +620,7 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
         
         # New battery power
         dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] # - dataDict['Pack Current'][i]**2 * total_pack_ir
-        P_intoInverter = (dataDict['P_battery'][i] - dataDict['Pack Current'][i]**2 * bus_R_total) / 4
+        P_intoInverter = (dataDict['P_battery'][i] - dataDict['Pack Current'][i]**2 * bus_R_total - LV_power) / 4
         P_intoMotor = P_intoInverter * n_converter
 
         # Determine resulting max torque

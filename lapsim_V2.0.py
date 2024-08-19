@@ -187,6 +187,9 @@ max_current = num_parallel_cells * max_CRate * max_capacity                 # A 
 max_charge_current = num_parallel_cells * cell_max_charge_current           # A - Max charge current through pack
 # !!! Total known energy is approximately SoC * nominal voltage * max capacity
 
+# !!! LV Power Use
+LV_power = 400                                                              # W - LV Power Use
+
 # !!!
 # Bussing calculations
 bus_R_unsplit = bussing_resistivity * bussing_length_unsplit / bussing_crossSecnArea    # Ohms
@@ -198,8 +201,6 @@ total_cell_mass = cell_mass*num_cells                                       # kg
 cooled_cell_mass = total_cell_mass*(1 + air_factor_m + water_factor_m)      # kg
 cell_aux_mass = cell_aux_factor * pack_nominal_voltage * pack_capacity_initial / 100  # kg - at the moment, based on nominal energy
 mass = no_cells_car_mass + expected_pack_mass                               # kg
-# mass = no_cells_car_mass + total_cell_mass                                  # kg
-#+ cooled_cell_mass + cell_aux_mass + heatsink_mass # kg
 
 # Thermals - Calculated Values
 battery_heat_capacity = battery_cv*cell_mass                                # J/C
@@ -465,7 +466,7 @@ for i in range(0, num_intervals-1):
     # Add safety checks on the battery here
     dataDict, power_limits, current_limits = dynF.batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limits, TotalLosses, MotorPower, current_limits)
 
-    # Additional Battery Calculations
+    # Additional Battery Calculations including SoC approximation and temperature
     dataDict = dynF.extraBatteryCalcs(dataDict, i)
 
     # Energy calculations
