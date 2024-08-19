@@ -804,7 +804,6 @@ def plotData(dataDict, currentTime):
         y_axis = "Pack Voltage (V)"
         plotTitle = "Pack Voltage vs Distance"
         ax[row][col].plot(dataDict["r0"], dataDict["Pack Voltage"], label="Pack Voltage")       # plot the data
-        ax[row][col].plot(dataDict["r0"], dataDict["Drooped Voltage"], label="Drooped Voltage")
         # Will also plot a red line to show the minimum voltage
         ax[row][col].plot(dataDict['r0'], np.ones_like(dataDict['r0']) * pack_min_voltage, 'r')
         ax[row][col].legend()
