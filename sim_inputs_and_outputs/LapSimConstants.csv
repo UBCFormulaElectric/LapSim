@@ -1,5 +1,5 @@
 ﻿PYTHON Variable,DESCRIPTION,VALUE,UNITS,NOTES
-track_choice,Race Track,Autocross,N/A,"Options: Acceleration, Autocross, Endurance, SkidPad"
+track_choice,Race Track,Endurance,N/A,"Options: Acceleration, Autocross, Endurance, SkidPad"
 regen_on,Regen On,TRUE,Boolean,Determines whether regen is on or not - options: TRUE or FALSE
 cell_choice,Chosen Cell Type,P28A_5,N/A,"Options: P30, P28A, P26A, P45"
 torque_speed,Peak or Continuous Torque/Speed Pull,Peak,N/A,Options: Peak or Continuous
@@ -25,9 +25,10 @@ heatsink_mass,Heatsink Mass,1.475,kg,Changes based on thermal design
 heatsink_cv,Heatsink Specific Heat Capacity,890,J/C*kg,Changes based on thermal design - range from 400 - 1000
 air_htc,Air Heat Transfer Coefficient,2.5,W/m^2,Changes based on thermal design - range from 0-200
 water_htc,Water Heat Transfer Coefficient,0,W/m^2,Changes based on thermal design - range from 0-400
+thermal_resistance_out,external cell thermal resistance,10.61057564,K/W,Needs to be determined experimentally
+thermal_resistance_in,internal cell thermal resistance,2.217135207,K/W,Needs to be determined experimentally
+cell_cv,Cell Specific Heat Capacity,763,J/kgK,Needs to be determined experimentally
 thermal_resistance_SE,Series Element Thermal Resistance,8.5,W/K,Unknown
-air_factor_m,Air Cooling Mass Percentage,0,,Changes based on thermal design - range from 0-0.05
-water_factor_m,Water Cooling Mass Percentage,0,,Changes based on thermal design - range from 0.05-0.9
 bussing_length_unsplit,Bussing length before HV is split,1,m,Changes based on bussing design
 bussing_length_split,Total bussing length after HV has been split,2,m,Changes based on bussing design
 bussing_resistivity,Bussing material resistivity,1.68E-08,Ohm-m,Changes based on selected material: Copper resistivity: 1.68e-8 // Aluminum resistivity: 2.65e-8
