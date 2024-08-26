@@ -73,8 +73,9 @@ water_temp = None               # C - CONSTANT ASSUMED WATER TEMP
 air_htc = None                  # W/C*m^2 - ASSUMED CONSTANT AIR HTC
 water_htc = None                # W/C*m^2 - ASSUMED CONSTANT WATER HTC
 thermal_resistance_SE = None    # K/W - ASSUMED SERIES ELEMENT THERMAL RESISTANCE
-air_factor_m = None             # kg/kg AIR COOLING MASS PER BATTERY MASS
-water_factor_m = None           # kg/kg WATER COOLING MASS PER BATTERY MASS
+thermal_resistance_out = None   # K/W - EXTERNAL CELL THERMAL RESISTANCE
+thermal_resistance_in = None    # K/W - INTERNAL CELL THERMAL RESISTANCE
+cell_cv = None                  # J/kgK - CELL SPECIFIC HEAT CAPACITY
 
 # !!!
 # BUSSING CONSTANTS
@@ -142,7 +143,6 @@ max_CRate = cell_max_current / max_capacity                         # N/A - SING
 max_charge_CRate = cell_max_charge_current / max_capacity           # N/A - SINGLE CELL MAXIMUM CHARGE C-RATE
 single_cell_ir = cellData.loc[cell_choice]['DCIR']                  # Ohms - SINGLE CELL DCIR
 cell_mass = cellData.loc[cell_choice]['mass']                       # kg - SINGLE CELL MASS
-battery_cv = cellData.loc[cell_choice]['batteryCv']                 # J/kgC - SINGLE CELL SPECIFIC HEAT CAPACITY
 num_parallel_cells = cellData.loc[cell_choice]['numParallel']       # N/A - NUMBER OF PARALLEL ELEMENTS
 num_series_cells = cellData.loc[cell_choice]['numSeries']           # N/A - NUMBER OF SERIES ELEMENTS
 expected_pack_mass = cellData.loc[cell_choice]['packWeight']        # kg - WEIGHT OF ACCUMULATOR
@@ -184,7 +184,11 @@ total_pack_ir = single_cell_ir / num_parallel_cells * num_series_cells      # oh
 knownTotalEnergy = pack_capacity_initial * pack_max_voltage / 1000          # kWh - maximum pack energy
 max_current = num_parallel_cells * max_CRate * max_capacity                 # A - Max current through pack
 max_charge_current = num_parallel_cells * cell_max_charge_current           # A - Max charge current through pack
+only_cells_mass = cell_mass * num_parallel_cells * num_series_cells         # kg - mass of only cells
 # !!! Total known energy is approximately SoC * nominal voltage * max capacity
+
+# !!! LV Power Use
+LV_power = 400                                                              # W - LV Power Use
 
 # !!!
 # Bussing calculations
@@ -193,15 +197,11 @@ bus_R_split = bussing_resistivity * bussing_length_split / bussing_crossSecnArea
 bus_R_total = bus_R_unsplit + bus_R_split / 2                                           # Ohms - presuming that we split HV into 2
 
 # Car Mass - Calculated Values
-total_cell_mass = cell_mass*num_cells                                       # kg
-cooled_cell_mass = total_cell_mass*(1 + air_factor_m + water_factor_m)      # kg
 cell_aux_mass = cell_aux_factor * pack_nominal_voltage * pack_capacity_initial / 100  # kg - at the moment, based on nominal energy
 mass = no_cells_car_mass + expected_pack_mass                               # kg
-# mass = no_cells_car_mass + total_cell_mass                                  # kg
-#+ cooled_cell_mass + cell_aux_mass + heatsink_mass # kg
 
 # Thermals - Calculated Values
-battery_heat_capacity = battery_cv*cell_mass                                # J/C
+battery_heat_capacity = cell_cv*cell_mass                                   # J/C
 air_tc = air_htc*heatsink_air_area                                          # W/C
 water_tc = water_htc*cell_water_area                                        # W/C
 air_thermal_resistance = 1 / air_tc                                         # K/W
@@ -232,7 +232,7 @@ elif track_choice == "SkidPad":
     numLaps = 1
     TRACK = "Sim_SkidPad.csv"
 elif track_choice == "Endurance":
-    numLaps = 1
+    numLaps = 22
     TRACK = "Sim_Endurance.csv"
 else:
     print("Incorrect track chosen. Please choose one of: Acceleration, Autocross, SkidPad, Endurance.")
@@ -475,9 +475,9 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
         if regen_on == "TRUE":
             # Check if the torque is below (in the negative direction) the rules limit of -5 Nm
             if dataDict['T_m'][i] > -5:
-                # just set the output to ZERO
-                dataDict['Pack Current'][i] = 0
-                dataDict['P_battery'][i] = 0
+                # just set the output to ZERO (with only LV Power Usage)
+                dataDict['P_battery'][i] = LV_power
+                dataDict['Pack Current'][i] = dataDict['P_battery'][i] / dataDict['Pack Voltage'][i]
                 dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
             else:   # include regen
                 # Determine power output from motor
@@ -508,7 +508,7 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
                     dataDict['T_m'][i] = -ShaftTorque.iloc[RPM_index, current_index]
                     
                 # Reset new battery input power
-                dataDict['P_battery'][i] = -(dataDict['Pack Voltage'][i] * abs(dataDict['Pack Current'][i]))
+                dataDict['P_battery'][i] = -(dataDict['Pack Voltage'][i] * abs(dataDict['Pack Current'][i])) + LV_power
                 # else:
                 #     # Otherwise, set power
                 #     # Switch to REMOVE instead of ADD the bussing voltage, also setting negative power to indicate regen
@@ -518,9 +518,9 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
                 dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
                 dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
         else: 
-            # just set the output to ZERO
-            dataDict['Pack Current'][i] = 0
-            dataDict['P_battery'][i] = 0
+            # just set the output to ZERO (with only LV Power usage)
+            dataDict['P_battery'][i] = LV_power
+            dataDict['Pack Current'][i] = dataDict['P_battery'][i] / dataDict['Pack Voltage'][i]
             dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
     else:
         # determine current pulled from each motor
@@ -542,7 +542,7 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
         # + total_pack_ir
         current_pair = quad_formula((bus_R_total), -dataDict['Pack Voltage'][i], 4*P_intoInverter)
         dataDict['Pack Current'][i] = current_pair[1]   # CHANGE LATER TO DETERMINE WHICH IS WHICH!!
-        dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] # - dataDict['Pack Current'][i]**2 * total_pack_ir
+        dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] + LV_power # - dataDict['Pack Current'][i]**2 * total_pack_ir
         dataDict['Drooped Voltage'][i] = dataDict['Pack Voltage'][i] - dataDict['Pack Current'][i] * total_pack_ir
         dataDict['Total Losses'][i] = dataDict['Pack Current'][i]**2 * (bus_R_total + total_pack_ir)
 
@@ -559,7 +559,7 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
         dataDict['P_battery'][i] = max_power
 
         dataDict['Pack Current'][i] = max_power / dataDict['Pack Voltage'][i]
-        P_intoInverter = (dataDict['P_battery'][i] - dataDict['Pack Current'][i]**2 * bus_R_total) / 4
+        P_intoInverter = (dataDict['P_battery'][i] - dataDict['Pack Current'][i]**2 * bus_R_total - LV_power) / 4
         P_intoMotor = P_intoInverter * n_converter
 
         # Determine resulting max torque
@@ -619,7 +619,7 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
         
         # New battery power
         dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] # - dataDict['Pack Current'][i]**2 * total_pack_ir
-        P_intoInverter = (dataDict['P_battery'][i] - dataDict['Pack Current'][i]**2 * bus_R_total) / 4
+        P_intoInverter = (dataDict['P_battery'][i] - dataDict['Pack Current'][i]**2 * bus_R_total - LV_power) / 4
         P_intoMotor = P_intoInverter * n_converter
 
         # Determine resulting max torque
@@ -731,24 +731,18 @@ def extraBatteryCalcs(dataDict, i):
     ########################################################################
     # Simple thermal calculations
     # P = I^2 * r - absolute of pack current to accout for regen also increasing pack temp
-    dataDict['Dissipated Power'][i] = (abs(dataDict['Pack Current'][i]) / num_parallel_cells)**2 * single_cell_ir
+    dataDict['Cell Qgen'][i] = (abs(dataDict['Pack Current'][i]) / num_parallel_cells)**2 * single_cell_ir
     
-    # Previous power out of cell calculation
-    # cell_p_out = (air_tc)*(dataDict['Battery Temp'][i]-air_temp) + water_tc*(dataDict['Battery Temp'][i]-water_temp)
+    # NOTE TO SELF:
+    # Look at my notes on confluence (https://ubcformulaelectric.atlassian.net/wiki/spaces/UFE/pages/edit-v2/405438472)
+    # for how I came across this formula (and to verify that it is correct)
+    air_temp_K = air_temp + 273.15
 
-    # Calculate time interval
-    dt = dataDict['t0'][i+1] - dataDict['t0'][i]
-
-    # Power out of cell to heatsink
-    cell_p_out = (dataDict['Battery Temp'][i] - dataDict['Heatsink Temp'][i]) / (thermal_resistance_SE * num_parallel_cells)
-
-    # First temp calculations
-    dataDict['Battery Temp'][i+1] = dataDict['Battery Temp'][i] + dt * (dataDict['Dissipated Power'][i] - cell_p_out) / (battery_heat_capacity)
-
-    # Heatsink temp calculations
-    # Split up calculation:
-    calculation1 = (dataDict['Battery Temp'][i] - dataDict['Heatsink Temp'][i]) * num_series_cells / thermal_resistance_SE - air_tc * (dataDict['Heatsink Temp'][i] - air_temp)
-    dataDict['Heatsink Temp'][i+1] = dataDict['Heatsink Temp'][i] + dt / (heatsink_mass * heatsink_cv) * calculation1
+    battery_temp_K = (((dataDict['Cell Qgen'][i] * thermal_resistance_out + air_temp_K) * dt
+                    + (dataDict['Battery Temp'][i] + 273.15) * battery_heat_capacity * (thermal_resistance_in + thermal_resistance_out))
+                    / (battery_heat_capacity * (thermal_resistance_in + thermal_resistance_out) + dt))
+    
+    dataDict['Battery Temp'][i+1] = battery_temp_K - 273.15
     #######################################################################
     return dataDict
 
@@ -827,13 +821,22 @@ def plotData(dataDict, currentTime):
         ax[row][col].plot(dataDict["r0"], dataDict["P_battery"])
         plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
 
+        # # Plot 4)
+        # # Battery Drooped Voltage
+        # row = 1; col = 1
+        # x_axis = "Distance (m)"
+        # y_axis = "SoC (%)"
+        # plotTitle = "SoC vs Distance"
+        # ax[row][col].plot(dataDict['r0'], dataDict['SoC Capacity'])
+        # plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
+
         # Plot 4)
-        # Battery Drooped Voltage
-        row = 1; col = 1
+        row = 1
+        col = 1
         x_axis = "Distance (m)"
-        y_axis = "SoC (%)"
-        plotTitle = "SoC vs Distance"
-        ax[row][col].plot(dataDict['r0'], dataDict['SoC Capacity'])
+        y_axis = "Battery Temperature (C)"
+        plotTitle = "Battery Temperature vs Distance"
+        ax[row][col].plot(dataDict['r0'], dataDict['Battery Temp'])
         plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
 
     elif track_choice == "Autocross":
@@ -876,7 +879,6 @@ def plotData(dataDict, currentTime):
         plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
     
     else:
-        
         # Plot 4)
         # Battery Current vs time
         row = 0; col = 0
@@ -914,3 +916,29 @@ def plotData(dataDict, currentTime):
         plotDetails(x_axis, y_axis, plotTitle, ax[row][col])
 
     return fig
+
+
+############################################################################
+# PREVIOUS CODE:
+
+# OLD CELL THERMAL CALCULATIONS:
+    # # Simple thermal calculations
+    # # P = I^2 * r - absolute of pack current to accout for regen also increasing pack temp
+    # dataDict['Cell Qgen'][i] = (abs(dataDict['Pack Current'][i]) / num_parallel_cells)**2 * single_cell_ir
+    
+    # # Previous power out of cell calculation
+    # # cell_p_out = (air_tc)*(dataDict['Battery Temp'][i]-air_temp) + water_tc*(dataDict['Battery Temp'][i]-water_temp)
+
+    # # Calculate time interval
+    # dt = dataDict['t0'][i+1] - dataDict['t0'][i]
+
+    # # Power out of cell to heatsink
+    # cell_p_out = (dataDict['Battery Temp'][i] - dataDict['Heatsink Temp'][i]) / (thermal_resistance_SE * num_parallel_cells)
+
+    # # First temp calculations
+    # dataDict['Battery Temp'][i+1] = dataDict['Battery Temp'][i] + dt * (dataDict['Cell Qgen'][i] - cell_p_out) / (battery_heat_capacity)
+
+    # # Heatsink temp calculations
+    # # Split up calculation:
+    # calculation1 = (dataDict['Battery Temp'][i] - dataDict['Heatsink Temp'][i]) * num_series_cells / thermal_resistance_SE - air_tc * (dataDict['Heatsink Temp'][i] - air_temp)
+    # dataDict['Heatsink Temp'][i+1] = dataDict['Heatsink Temp'][i] + dt / (heatsink_mass * heatsink_cv) * calculation1

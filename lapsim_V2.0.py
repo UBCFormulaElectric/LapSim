@@ -74,8 +74,9 @@ water_temp = None               # C - CONSTANT ASSUMED WATER TEMP
 air_htc = None                  # W/C*m^2 - ASSUMED CONSTANT AIR HTC
 water_htc = None                # W/C*m^2 - ASSUMED CONSTANT WATER HTC
 thermal_resistance_SE = None    # K/W - ASSUMED SERIES ELEMENT THERMAL RESISTANCE
-air_factor_m = None             # kg/kg AIR COOLING MASS PER BATTERY MASS
-water_factor_m = None           # kg/kg WATER COOLING MASS PER BATTERY MASS
+thermal_resistance_out = None   # K/W - EXTERNAL CELL THERMAL RESISTANCE
+thermal_resistance_in = None    # K/W - INTERNAL CELL THERMAL RESISTANCE
+cell_cv = None                  # J/kgK - CELL SPECIFIC HEAT CAPACITY
 
 # !!!
 # BUSSING CONSTANTS
@@ -143,7 +144,6 @@ max_CRate = cell_max_current / max_capacity                         # N/A - SING
 max_charge_CRate = cell_max_charge_current / max_capacity           # N/A - SINGLE CELL MAXIMUM CHARGE C-RATE
 single_cell_ir = cellData.loc[cell_choice]['DCIR']                  # Ohms - SINGLE CELL DCIR
 cell_mass = cellData.loc[cell_choice]['mass']                       # kg - SINGLE CELL MASS
-battery_cv = cellData.loc[cell_choice]['batteryCv']                 # J/kgC - SINGLE CELL SPECIFIC HEAT CAPACITY
 num_parallel_cells = cellData.loc[cell_choice]['numParallel']       # N/A - NUMBER OF PARALLEL ELEMENTS
 num_series_cells = cellData.loc[cell_choice]['numSeries']           # N/A - NUMBER OF SERIES ELEMENTS
 expected_pack_mass = cellData.loc[cell_choice]['packWeight']        # kg - WEIGHT OF ACCUMULATOR
@@ -185,7 +185,11 @@ total_pack_ir = single_cell_ir / num_parallel_cells * num_series_cells      # oh
 knownTotalEnergy = pack_capacity_initial * pack_max_voltage / 1000          # kWh - maximum pack energy
 max_current = num_parallel_cells * max_CRate * max_capacity                 # A - Max current through pack
 max_charge_current = num_parallel_cells * cell_max_charge_current           # A - Max charge current through pack
+only_cells_mass = cell_mass * num_parallel_cells * num_series_cells         # kg - mass of only cells
 # !!! Total known energy is approximately SoC * nominal voltage * max capacity
+
+# !!! LV Power Use
+LV_power = 400                                                              # W - LV Power Use
 
 # !!!
 # Bussing calculations
@@ -194,15 +198,11 @@ bus_R_split = bussing_resistivity * bussing_length_split / bussing_crossSecnArea
 bus_R_total = bus_R_unsplit + bus_R_split / 2                                           # Ohms - presuming that we split HV into 2
 
 # Car Mass - Calculated Values
-total_cell_mass = cell_mass*num_cells                                       # kg
-cooled_cell_mass = total_cell_mass*(1 + air_factor_m + water_factor_m)      # kg
 cell_aux_mass = cell_aux_factor * pack_nominal_voltage * pack_capacity_initial / 100  # kg - at the moment, based on nominal energy
 mass = no_cells_car_mass + expected_pack_mass                               # kg
-# mass = no_cells_car_mass + total_cell_mass                                  # kg
-#+ cooled_cell_mass + cell_aux_mass + heatsink_mass # kg
 
 # Thermals - Calculated Values
-battery_heat_capacity = battery_cv*cell_mass                                # J/C
+battery_heat_capacity = cell_cv*cell_mass                                # J/C
 air_tc = air_htc*heatsink_air_area                                          # W/C
 water_tc = water_htc*cell_water_area                                        # W/C
 air_thermal_resistance = 1 / air_tc                                         # K/W
@@ -233,7 +233,7 @@ elif track_choice == "SkidPad":
     numLaps = 1
     TRACK = "Sim_SkidPad.csv"
 elif track_choice == "Endurance":
-    numLaps = 1
+    numLaps = 22
     TRACK = "Sim_Endurance.csv"
 else:
     print("Incorrect track chosen. Please choose one of: Acceleration, Autocross, SkidPad, Endurance.")
@@ -407,7 +407,7 @@ headers = ['v0',                    # velocity vector (m/s)
            "Pack Current",          # Battery pack current (A)
            "Energy Use",            # energy use over time (kWh)
            "SoC Capacity",          # state of charge - capacity based (%)
-           "Dissipated Power",      # Power dissipated from batteries due to internal resistance (W)
+           "Cell Qgen",             # Power dissipated from batteries due to internal resistance (W)
            "Battery Temp",          # Temperature of battery pack (C)
            "Drooped Voltage",       # To determine whether voltage drops are considered with the battery power / motor current inconsistency problem... (V)
            "Total Losses",          # Total Losses with motor and battery (kW)
@@ -465,7 +465,7 @@ for i in range(0, num_intervals-1):
     # Add safety checks on the battery here
     dataDict, power_limits, current_limits = dynF.batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limits, TotalLosses, MotorPower, current_limits)
 
-    # Additional Battery Calculations
+    # Additional Battery Calculations including SoC approximation and temperature
     dataDict = dynF.extraBatteryCalcs(dataDict, i)
 
     # Energy calculations
@@ -485,8 +485,8 @@ for i in range(0, num_intervals-1):
     #     print("debug power: %.3f kW" % (dataDict["P_battery"][i]/1000))
 
 # Energy use
-total_energy = dataDict['Energy Use'][-1] * numLaps
-total_energy_loss = dataDict['Total Losses NRG'][-1] * numLaps
+total_energy = dataDict['Energy Use'][-1]
+total_energy_loss = dataDict['Total Losses NRG'][-1]
 
 # Determination of maximum power
 dataDict['P_battery'] = dataDict['P_battery'] / 1000        # convert to kW
@@ -507,8 +507,8 @@ print("Total Energy Lost (This Sim): %.3f kWh" % total_energy_loss)
 print("Max Power (This Sim): " + str(maxPower) + " kW")
 print("Avg Power (This Sim): " + str(averagePower) + " kW")
 print("Car Mass: " + str(mass) + " kg")
-print("Lap Time: " + str(dataDict['t0'][-1]) + " s")
-print("Total Time: " + str(dataDict['t0'][-1] * numLaps / 60) + " mins")
+print("Lap Time: " + str(dataDict['t0'][-1] / numLaps) + " s")
+print("Total Time: " + str(dataDict['t0'][-1] / 60) + " mins")
 print("Average pack current: %.6f A" % np.mean(dataDict['Pack Current']))
 # print("Final SoC(c): ", dataDict['SoC Capacity'][-1], "%")
 
@@ -525,8 +525,8 @@ with open(summaryOutPath, 'w') as textFile:
     textFile.write("Avg Power (This Sim): " + str(averagePower) + " kW\n")
     textFile.write("Average pack current: %.3f A\n" % np.mean(dataDict['Pack Current']))
     textFile.write("Car Mass: " + str(mass) + " kg\n")
-    textFile.write("Lap Time: " + str(dataDict['t0'][-1]) + " s\n")
-    textFile.write("Total Time: " + str(dataDict['t0'][-1] * numLaps / 60) + " mins\n")
+    textFile.write("Lap Time: " + str(dataDict['t0'][-1] / numLaps) + " s\n")
+    textFile.write("Total Time: " + str(dataDict['t0'][-1] / 60) + " mins\n")
     textFile.write("Longitudinal traction limits: " + str(longitudinal_traction_limits) + "\n")
     textFile.write("Max Speed Limits: " + str(max_speed_limits) + "\n")
     textFile.write("Power Limits: " + str(power_limits) + "\n")
