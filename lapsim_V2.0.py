@@ -140,8 +140,6 @@ cell_min_voltage = cellData.loc[cell_choice]['minVoltage']          # V - SINGLE
 cell_max_current = cellData.loc[cell_choice]['maxCurrent']          # A - SINGLE CELL MAX CURRENT
 cell_max_charge_current = cellData.loc[cell_choice]['maxChargeCurrent'] # A - SINGLE CELL MAX CHARGE CURRENT
 max_capacity = cellData.loc[cell_choice]['capacity']                # Ah - SINGLE CELL MAX CAPACITY
-max_CRate = cell_max_current / max_capacity                         # N/A - SINGLE CELL MAXIMUM DISCHARGE C-RATE
-max_charge_CRate = cell_max_charge_current / max_capacity           # N/A - SINGLE CELL MAXIMUM CHARGE C-RATE
 single_cell_ir = cellData.loc[cell_choice]['DCIR']                  # Ohms - SINGLE CELL DCIR
 cell_mass = cellData.loc[cell_choice]['mass']                       # kg - SINGLE CELL MASS
 num_parallel_cells = cellData.loc[cell_choice]['numParallel']       # N/A - NUMBER OF PARALLEL ELEMENTS
@@ -183,7 +181,7 @@ pack_max_voltage = cell_max_voltage * num_series_cells                      # V 
 pack_min_voltage = cell_min_voltage * num_series_cells                      # V - Pack minimum voltage
 total_pack_ir = single_cell_ir / num_parallel_cells * num_series_cells      # ohms - total IR
 knownTotalEnergy = pack_capacity_initial * pack_max_voltage / 1000          # kWh - maximum pack energy
-max_current = num_parallel_cells * max_CRate * max_capacity                 # A - Max current through pack
+max_current = num_parallel_cells * cell_max_current                         # A - Max current through pack
 max_charge_current = num_parallel_cells * cell_max_charge_current           # A - Max charge current through pack
 only_cells_mass = cell_mass * num_parallel_cells * num_series_cells         # kg - mass of only cells
 # !!! Total known energy is approximately SoC * nominal voltage * max capacity
@@ -533,7 +531,7 @@ with open(summaryOutPath, 'w') as textFile:
     textFile.write("Max Power (This Sim): " + str(maxPower) + " kW\n")
     textFile.write("Avg Power (This Sim): " + str(averagePower) + " kW\n")
     textFile.write("Average pack current: %.3f A\n" % np.mean(dataDict['Pack Current']))
-    textFile.write("Total Heat Generated from Batteries: %.3f J\n" % dataDict["Cell Total Heat"][-1])
+    textFile.write("Total Heat Generated from Batteries: %.3f J\n" % dataDict["Cell Total Gen"][-1])
     textFile.write("Total Heat Removed from Batteries: %.3f J\n" % dataDict['Cell Total Qout'][-1])
     textFile.write("Total Net Generated Heat from Batteries: %.3f J\n" % dataDict['Cell Net Heat'][-1])
     textFile.write("Car Mass: " + str(mass) + " kg\n")

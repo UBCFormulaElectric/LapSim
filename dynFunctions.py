@@ -139,8 +139,6 @@ cell_min_voltage = cellData.loc[cell_choice]['minVoltage']          # V - SINGLE
 cell_max_current = cellData.loc[cell_choice]['maxCurrent']          # A - SINGLE CELL MAX CURRENT
 cell_max_charge_current = cellData.loc[cell_choice]['maxChargeCurrent'] # A - SINGLE CELL MAX CHARGE CURRENT
 max_capacity = cellData.loc[cell_choice]['capacity']                # Ah - SINGLE CELL MAX CAPACITY
-max_CRate = cell_max_current / max_capacity                         # N/A - SINGLE CELL MAXIMUM DISCHARGE C-RATE
-max_charge_CRate = cell_max_charge_current / max_capacity           # N/A - SINGLE CELL MAXIMUM CHARGE C-RATE
 single_cell_ir = cellData.loc[cell_choice]['DCIR']                  # Ohms - SINGLE CELL DCIR
 cell_mass = cellData.loc[cell_choice]['mass']                       # kg - SINGLE CELL MASS
 num_parallel_cells = cellData.loc[cell_choice]['numParallel']       # N/A - NUMBER OF PARALLEL ELEMENTS
@@ -182,7 +180,7 @@ pack_max_voltage = cell_max_voltage * num_series_cells                      # V 
 pack_min_voltage = cell_min_voltage * num_series_cells                      # V - Pack minimum voltage
 total_pack_ir = single_cell_ir / num_parallel_cells * num_series_cells      # ohms - total IR
 knownTotalEnergy = pack_capacity_initial * pack_max_voltage / 1000          # kWh - maximum pack energy
-max_current = num_parallel_cells * max_CRate * max_capacity                 # A - Max current through pack
+max_current = num_parallel_cells * cell_max_current                         # A - Max current through pack
 max_charge_current = num_parallel_cells * cell_max_charge_current           # A - Max charge current through pack
 only_cells_mass = cell_mass * num_parallel_cells * num_series_cells         # kg - mass of only cells
 # !!! Total known energy is approximately SoC * nominal voltage * max capacity
@@ -201,7 +199,7 @@ cell_aux_mass = cell_aux_factor * pack_nominal_voltage * pack_capacity_initial /
 mass = no_cells_car_mass + expected_pack_mass                               # kg
 
 # Thermals - Calculated Values
-battery_heat_capacity = cell_cv*cell_mass                                   # J/C
+battery_heat_capacity = cell_cv*cell_mass                                # J/C
 air_tc = air_htc*heatsink_air_area                                          # W/C
 water_tc = water_htc*cell_water_area                                        # W/C
 air_thermal_resistance = 1 / air_tc                                         # K/W
@@ -467,8 +465,6 @@ def braking(brakeDict, dataDict, i, braking_limits):
 ### batteryPower
 ## NEW BATTERY FUNCTION
 def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current_limits, AMK_current):
-    # Calculate max charge current based on capacity
-    max_charge_current_now = max_charge_CRate * dataDict['Pack Capacity'][i]
 
     # separate into regen/non-regen
     if dataDict['T_m'][i] < 0:
@@ -499,9 +495,9 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
                 dataDict['Pack Current'][i] = -current_pair[0]                                                    # Setting negative current
 
                 # Check current limit
-                if abs(dataDict['Pack Current'][i]) > max_charge_current_now:
+                if abs(dataDict['Pack Current'][i]) > max_charge_current:
                     regen_current_limits = regen_current_limits + 1             # increase the count of regen limits
-                    dataDict['Pack Current'][i] = -max_charge_current_now       # negative to indicate charging
+                    dataDict['Pack Current'][i] = -max_charge_current           # negative to indicate charging
 
                     # Correct the negative motor torque - need to fix this
                     current_index = findClosestMatch(AMK_current, abs(dataDict['Pack Current'][i]))
@@ -551,8 +547,6 @@ def batteryPower(dataDict, i, ShaftTorque, MotorPower, AMK_speeds, regen_current
 ### batteryChecks
 ## Battery safety checks
 def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limits, TotalLosses, MotorPower, current_limits):
-    # Calculate max current based on capacity
-    max_current_now = max_CRate * dataDict['Pack Capacity'][i]
 
     # Check for over 80 kW
     if dataDict['P_battery'][i] > max_power:
@@ -614,8 +608,8 @@ def batteryChecks(dataDict, i, AMK_current, AMK_speeds, ShaftTorque, power_limit
         
         ##############################################################################################
     # check for over the current limit
-    if dataDict['Pack Current'][i] >= max_current_now:
-        dataDict['Pack Current'][i] = max_current_now
+    if dataDict['Pack Current'][i] >= max_current:
+        dataDict['Pack Current'][i] = max_current
         
         # New battery power
         dataDict['P_battery'][i] = dataDict['Pack Voltage'][i] * dataDict['Pack Current'][i] # - dataDict['Pack Current'][i]**2 * total_pack_ir
@@ -689,7 +683,7 @@ def SoCLookup(dataDict, i, current_index):
     next_cell_capacity = dataDict['Pack Capacity'][i+1] / num_parallel_cells
 
     # To fix errors with going below minimum capacity:
-    min_cell_capacity = 0.3
+    min_cell_capacity = 0         # CAPPING MIN CAPACITY AT 0 - CANNOT BE NEGATIVE
     if next_cell_capacity < min_cell_capacity:
         dataDict['Pack Capacity'][i+1] = min_cell_capacity * num_parallel_cells
         next_cell_capacity = min_cell_capacity
