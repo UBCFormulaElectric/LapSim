@@ -2,7 +2,7 @@
 track_choice,Race Track,Endurance,N/A,"Options: Acceleration, Autocross, Endurance, SkidPad"
 regen_on,Regen On,TRUE,Boolean,Determines whether regen is on or not - options: TRUE or FALSE
 cell_choice,Chosen Cell Type,P28A_5,N/A,"Options: P30, P28A, P26A, P45"
-torque_speed,Peak or Continuous Torque/Speed Pull,Peak,N/A,Options: Peak or Continuous
+torque_speed,Peak or Continuous Torque/Speed Pull,Continuous,N/A,Options: Peak or Continuous
 no_cells_car_mass,Car Mass,175,kg,Car without battery cell mass (still include enclosure weight) - also overestimate (Quadruna: 195kg without segments)
 Af,Frontal Area,0.78,m^2,Confirm with How-dog's calculations - currently from: https://ubcformulaelectric.atlassian.net/wiki/spaces/UFE/pages/23003611/Aerodynamics+-+Justification
 Al,Wing element area from top down,1.125,m^2,Confirm with How-dog's calculations - currently the addition of front and rear wings from: https://ubcformulaelectric.atlassian.net/wiki/spaces/UFE/pages/23003611/Aerodynamics+-+Justification

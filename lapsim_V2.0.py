@@ -382,7 +382,7 @@ brakeDict['Speed'] = np.delete(brakeDict['Speed'], 0)
 
 # Begin the iteration:
 # CURRENT TIME
-currentTime = datetime.datetime.now().strftime("%d%m%Y-%H%M%S")
+currentTime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
 # Vectors for each set of data
 # Create a dictionary of values
