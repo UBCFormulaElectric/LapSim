@@ -392,6 +392,7 @@ headers = ['v0',                    # velocity vector (m/s)
            'w_wh',                  # wheel angular velocity (rad/s)
            "w_m",                   # motor angular velocity (rpm)
            "T_m",                   # motor torque (Nm)
+           "Motor Power",           # Power into motor (W)
            "Motor Power Loss",      # Power Losses from Motor (W)
            "Motor Energy Loss",     # Total Energy Loss from Motor (J)
            "Inverter Power Loss",   # Power Losses from Inverter (W)
@@ -474,6 +475,9 @@ for i in range(0, num_intervals-1):
 
     # Additional Battery Calculations including SoC approximation and temperature
     dataDict = dynF.extraBatteryCalcs(dataDict, i)
+
+    # Motor heat generation calculations
+    dataDict = dynF.calculate_heat_generation(dataDict, i)
 
     # Energy calculations
     dataDict = dynF.energyConsumed(dataDict, i)

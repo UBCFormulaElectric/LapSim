@@ -683,7 +683,7 @@ def SoCLookup(dataDict, i, current_index):
     next_cell_capacity = dataDict['Pack Capacity'][i+1] / num_parallel_cells
 
     # To fix errors with going below minimum capacity:
-    min_cell_capacity = 0         # CAPPING MIN CAPACITY AT 0 - CANNOT BE NEGATIVE
+    min_cell_capacity = 0.1         # CAPPING MIN CAPACITY AT 0 - CANNOT BE NEGATIVE
     if next_cell_capacity < min_cell_capacity:
         dataDict['Pack Capacity'][i+1] = min_cell_capacity * num_parallel_cells
         next_cell_capacity = min_cell_capacity
@@ -744,6 +744,13 @@ def extraBatteryCalcs(dataDict, i):
     dataDict['Cell Qout'][i] = 1 / thermal_resistance_out * (dataDict['Battery Temp'][i] - air_temp)
     dataDict['Cell Net Q'][i] = dataDict['Cell Qgen'][i] - dataDict['Cell Qout'][i]
     #######################################################################
+    return dataDict
+
+### calculate_heat_generation
+## Motor heat generation calculation
+def calculate_heat_generation(dataDict, i):
+    # Noah's function :)
+
     return dataDict
 
 ### energyConsumed
