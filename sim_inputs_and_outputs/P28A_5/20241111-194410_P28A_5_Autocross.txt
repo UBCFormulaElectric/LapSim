@@ -1,0 +1,18 @@
+Energy Used (This Sim): 0.43929807020763506 kWh
+Energy Used (22 Laps - Endurance): 9.664558 kWh
+Total Energy Lost (This Sim): 0.098 kWh
+Max Power (This Sim): 80.0 kW
+Avg Power (This Sim): 28.720436687693194 kW
+Average pack current: 57.979 A
+Total Heat Generated from Batteries: 502.910 J
+Total Heat Removed from Batteries: 38.317 J
+Total Net Generated Heat from Batteries: 464.592 J
+Car Mass: 227.4 kg
+Lap Time: 65.96627362987188 s
+Total Time: 1.099437893831198 mins
+Longitudinal traction limits: 100286
+Max Speed Limits: 45597
+Power Limits: 20307
+Current Limits: 0
+Braking Limits: 14459
+Regen Current Limits: 14449
