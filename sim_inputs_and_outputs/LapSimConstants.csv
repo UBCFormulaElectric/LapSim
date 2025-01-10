@@ -1,7 +1,7 @@
 ﻿PYTHON Variable,DESCRIPTION,VALUE,UNITS,NOTES
-track_choice,Race Track,Endurance,N/A,"Options: Acceleration, Autocross, Endurance, SkidPad"
+track_choice,Race Track,Autocross,N/A,"Options: Acceleration, Autocross, Endurance, SkidPad"
 regen_on,Regen On,TRUE,Boolean,Determines whether regen is on or not - options: TRUE or FALSE
-cell_choice,Chosen Cell Type,P28A_6,N/A,"Options: P30, P28A, P26A, P45"
+cell_choice,Chosen Cell Type,P28A_5,N/A,"Options: P30, P28A, P26A, P45"
 torque_speed,Peak or Continuous Torque/Speed Pull,Peak,N/A,Options: Peak or Continuous
 no_cells_car_mass,Car Mass,175,kg,Car without battery cell mass (still include enclosure weight) - also overestimate (Quadruna: 195kg without segments)
 Af,Frontal Area,0.78,m^2,Confirm with How-dog's calculations - currently from: https://ubcformulaelectric.atlassian.net/wiki/spaces/UFE/pages/23003611/Aerodynamics+-+Justification
@@ -17,7 +17,7 @@ initial_SoC,Starting SoC,100,%,Changes based on starting conditions
 n_converter,Converter Efficiency,0.98,,AMK Inverter - from datasheet: https://drive.google.com/file/d/1SXMTTG5ESFkXv64doScmTEV6O9TPr8Ge/view 
 cell_water_area,Battery Water Cooling Surface Area,0.031875,m^2,Changes based on battery selection
 cell_aux_factor,Battery Auxillary Mass Factor,2.506,kg/kWh,Changes based on battery selection
-max_power,Max Battery Power,40000,W,Maximum Possible = 80 kW (80000 W)
+max_power,Max Battery Power,80000,W,Maximum Possible = 80 kW (80000 W)
 air_temp,Air Temperature,30,C,Changes based on thermal design
 water_temp,Water Temperature ,23,C,Changes based on thermal design
 heatsink_air_area,Heat Sink Air Cooling Surface Area,0.031875,m^2,Changes based on thermal design

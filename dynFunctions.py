@@ -746,10 +746,48 @@ def extraBatteryCalcs(dataDict, i):
     #######################################################################
     return dataDict
 
-### calculate_heat_generation
-## Motor heat generation calculation
-def calculate_heat_generation(dataDict, i):
-    # Noah's function :)
+### driverSwapCooling
+## Calculate the decrease in temperature of the cells during the driver swap
+## Assume that LV batteries on car allow fans to continue running while car is stoppedd
+def driverSwapCooling(dataDict, i):
+
+    # set up constants
+    air_temp_K = air_temp + 273.15      # Convert to K from C
+    totalTimeMins = 5                   # Driver swap time in mins
+    totalTimeSecs = totalTimeMins * 60  # time in secs
+    numElems = totalTimeSecs * 5        # 5 measurements per second
+    timeVector = np.linspace(0, totalTimeSecs, numElems)    # time measurements
+    batteryTemp = np.zeros(numElems)                        # battery temperature vector
+    cellQout = np.zeros(numElems)                           # heat out vector
+    cellQgen = 0                                            # 0 generated heat
+    dt = totalTimeSecs / numElems                           # time interval
+
+    batteryTemp[0] = dataDict["Battery Temp"][i]            # Set battery temperature to the final value
+    cellQout[0] = dataDict["Cell Qout"][i]                  # Same with heat out
+
+    # Iterate over 5 minutes of time to determine how much the cell temperature decreases with no power generated    
+    for j in range(0, len(timeVector)-1):
+
+        battery_temp_K = (((cellQgen * thermal_resistance_out + air_temp_K) * dt
+                        + (batteryTemp[j] + 273.15) * battery_heat_capacity * (thermal_resistance_in + thermal_resistance_out))
+                        / (battery_heat_capacity * (thermal_resistance_in + thermal_resistance_out) + dt))
+        
+        batteryTemp[j+1] = battery_temp_K - 273.15     # Convert back to C from K
+
+        # Calculate net heat generation rate (Qgen - Qtransferred)
+        cellQout[j] = 1 / thermal_resistance_out * (batteryTemp[j] - air_temp)
+
+    # Update the last value prior to stopping with the new lower temperature (AFTER driver swap)
+    # Otherwise, will be too hard to add this data into the system (seeing as it updates based on distance travelled)
+    dataDict['Battery Temp'][i+1] = batteryTemp[-1]
+
+    # For debugging purposes, plot some stuff
+    plt.plot(timeVector, batteryTemp)
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Temperature (C)")
+    plt.title("Battery Temperature over Time")
+    plt.grid(True)
+    plt.savefig("validation/batteryCoolingDuringDriverSwap.png")
 
     return dataDict
 
